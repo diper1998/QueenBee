@@ -1,0 +1,2 @@
+# QueenBee
+OpenCL task manager
