@@ -1,13 +1,29 @@
-#include "QueenBee.hpp"
+#include "..\include\QueenBee.hpp"
 
 Keeper::Keeper() {
-  vector<Platform> platforms;
-  Platform::get(&platforms);
+  SetGardens();
+  SetKernel("kernel.txt");
+}
 
+void Keeper::Info() {
+  cout << endl;
+  for (auto g : gardens) {
+    cout << g.name << endl;
+    for (auto h : g.hives) {
+      cout << h.type << ": " << h.name << endl;
+    }
+  }
+  cout << endl << kernel << endl;
+}
+
+int Keeper::SetGardens() {
+  vector<Platform> platforms;
+  vector<Device> devices;
   Hive hive;
   Platform platform;
-  vector<Device> devices;
 
+  Platform::get(&platforms);
+  
   Garden garden;
 
   for (auto p : platforms) {
@@ -37,15 +53,27 @@ Keeper::Keeper() {
 
     gardens.push_back(garden);
   }
+
+  return 1;
 }
 
-void Keeper::Info() {
-  for (auto g : gardens) {
-    cout << g.name << endl;
-    for (auto h : g.hives) {
-      cout << h.type << ": " << h.name << endl;
-    }
+int Keeper::SetKernel(string fname) {
+  ifstream file(fname);
+
+  if (!file.is_open()) {
+    cout << endl <<"ERROR: SetKernel(string fname) fname is't found;" << endl;
+    return 0;
   }
+
+  file.seekg(0, std::ios::end);
+  std::size_t size = file.tellg();
+  string tmp(size, ' ');
+  file.seekg(0);
+  file.read(&tmp[0], size);
+  file.close();
+  kernel = tmp;
+
+  return 1;
 }
 
 Garden::Garden() {}

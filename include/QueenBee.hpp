@@ -7,6 +7,7 @@
 #endif
 #include <iostream>
 #include <vector>
+#include <fstream>
 
 using namespace std;
 using namespace cl;
@@ -38,8 +39,13 @@ class Garden {  // Platform
 class Keeper {
  protected:
   vector<Garden> gardens;
+  string kernel;
 
  public:
   Keeper();
   void Info();
+  int SetGardens();
+  int SetKernel(string fname);
 };
+
+

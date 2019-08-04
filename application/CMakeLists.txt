@@ -37,3 +37,6 @@ foreach(app_filename ${app_list})
 endforeach()
 
 target_link_libraries(${app} ${OPENCL_LIBRARIES})
+
+file(COPY ${CMAKE_CURRENT_SOURCE_DIR}/kernel.txt
+DESTINATION ${CMAKE_CURRENT_BINARY_DIR})
