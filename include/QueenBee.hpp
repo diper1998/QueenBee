@@ -12,23 +12,15 @@
 using namespace std;
 using namespace cl;
 
-class Hive {  // Device
- protected:
-  Device device;
-  string name;
-  string type;
-
- public:
-  Hive();
-
-  friend class Keeper;
-};
 
 class Garden {  // Platform
+
  protected:
   Platform platform;
-  vector<Hive> hives;
-  string name;
+  vector<Device> devices;
+  Context context;
+  Program program;
+
 
  public:
   Garden();
@@ -36,16 +28,28 @@ class Garden {  // Platform
   friend class Keeper;
 };
 
+class Environment {
+ protected:
+  string kernel;
+  Program::Sources source;
+  
+ public:
+  Environment();
+
+  friend class Keeper;
+};
+
 class Keeper {
  protected:
   vector<Garden> gardens;
-  string kernel;
+  Environment env; 
 
  public:
   Keeper();
   void Info();
   int SetGardens();
   int SetKernel(string fname);
+  int Build();
 };
 
 

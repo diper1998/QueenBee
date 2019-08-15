@@ -8,49 +8,26 @@ Keeper::Keeper() {
 void Keeper::Info() {
   cout << endl;
   for (auto g : gardens) {
-    cout << g.name << endl;
-    for (auto h : g.hives) {
-      cout << h.type << ": " << h.name << endl;
+    cout << g.platform.getInfo<CL_PLATFORM_NAME>() << endl;
+    
+        for (auto d : g.devices) {
+      cout << d.getInfo<CL_DEVICE_TYPE>() << ": " << d.getInfo<CL_DEVICE_NAME>()
+           << endl;
     }
+        
   }
-  cout << endl << kernel << endl;
+  cout << endl << env.kernel << endl;
 }
 
-int Keeper::SetGardens() {
+int Keeper::SetGardens() {  // all platforms with devices
   vector<Platform> platforms;
-  vector<Device> devices;
-  Hive hive;
   Platform platform;
-
   Platform::get(&platforms);
-  
   Garden garden;
 
   for (auto p : platforms) {
-    garden.platform = p;
-    garden.name = p.getInfo<CL_PLATFORM_NAME>();
-
-    p.getDevices(CL_DEVICE_TYPE_ALL, &devices);
-
-    for (auto d : devices) {
-      hive.device = d;
-      hive.name = d.getInfo<CL_DEVICE_NAME>();
-
-      switch (d.getInfo<CL_DEVICE_TYPE>()) {
-        case CL_DEVICE_TYPE_CPU:
-          hive.type = "CPU";
-          break;
-        case CL_DEVICE_TYPE_GPU:
-          hive.type = "GPU";
-          break;
-        case CL_DEVICE_TYPE_ACCELERATOR:
-          hive.type = "ACCELERATOR";
-          break;
-      }
-
-      garden.hives.push_back(hive);
-    }
-
+    garden.platform = p;  
+    garden.platform.getDevices(CL_DEVICE_TYPE_ALL, &garden.devices);
     gardens.push_back(garden);
   }
 
@@ -61,7 +38,7 @@ int Keeper::SetKernel(string fname) {
   ifstream file(fname);
 
   if (!file.is_open()) {
-    cout << endl <<"ERROR: SetKernel(string fname) fname is't found;" << endl;
+    cout << endl << "ERROR: SetKernel(string fname) fname is't found;" << endl;
     return 0;
   }
 
@@ -71,11 +48,31 @@ int Keeper::SetKernel(string fname) {
   file.seekg(0);
   file.read(&tmp[0], size);
   file.close();
-  kernel = tmp;
+  env.kernel = tmp;
+
+  env.source.push_back({env.kernel.c_str(), env.kernel.length()});
+
+  return 1;
+}
+
+
+int Keeper::Build() {
+  for (auto g : gardens) {
+    Context context(g.devices);
+    g.context = context;
+
+    Program program(g.context, env.source);
+    g.program = program;
+
+    if (g.program.build(g.devices) != CL_SUCCESS) {
+      for (auto d : g.devices) 
+		  cout << endl << g.program.getBuildInfo<CL_PROGRAM_BUILD_LOG>(d) <<endl;
+    }
+  }
 
   return 1;
 }
 
 Garden::Garden() {}
 
-Hive::Hive() {}
+Environment::Environment() {}
