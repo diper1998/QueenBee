@@ -3,20 +3,28 @@
 Keeper::Keeper() {
   SetGardens();
   SetKernel("kernel.txt");
+  Build();
 }
 
 void Keeper::Info() {
   cout << endl;
-  for (auto g : gardens) {
+  for (const auto& g : gardens) {
     cout << g.platform.getInfo<CL_PLATFORM_NAME>() << endl;
-    
-        for (auto d : g.devices) {
+
+    for (const auto& d : g.devices) {
       cout << d.getInfo<CL_DEVICE_TYPE>() << ": " << d.getInfo<CL_DEVICE_NAME>()
            << endl;
     }
-        
   }
   cout << endl << env.kernel << endl;
+  
+   for (const auto& g : gardens) {
+
+      for (const auto& d : g.devices){
+        cout << endl << g.program.getBuildInfo<CL_PROGRAM_BUILD_LOG>(d) << endl;
+    }
+  }
+  
 }
 
 int Keeper::SetGardens() {  // all platforms with devices
@@ -25,8 +33,8 @@ int Keeper::SetGardens() {  // all platforms with devices
   Platform::get(&platforms);
   Garden garden;
 
-  for (auto p : platforms) {
-    garden.platform = p;  
+  for (const auto& p : platforms) {
+    garden.platform = p;
     garden.platform.getDevices(CL_DEVICE_TYPE_ALL, &garden.devices);
     gardens.push_back(garden);
   }
@@ -55,9 +63,8 @@ int Keeper::SetKernel(string fname) {
   return 1;
 }
 
-
 int Keeper::Build() {
-  for (auto g : gardens) {
+  for (auto& g : gardens) {
     Context context(g.devices);
     g.context = context;
 
@@ -65,10 +72,13 @@ int Keeper::Build() {
     g.program = program;
 
     if (g.program.build(g.devices) != CL_SUCCESS) {
-      for (auto d : g.devices) 
-		  cout << endl << g.program.getBuildInfo<CL_PROGRAM_BUILD_LOG>(d) <<endl;
+      for (const auto& d : g.devices)
+        cout << endl << g.program.getBuildInfo<CL_PROGRAM_BUILD_LOG>(d) << endl;
     }
+
   }
+
+  
 
   return 1;
 }

@@ -5,13 +5,12 @@
 #else
 #include <CL/cl.hpp>
 #endif
+#include <fstream>
 #include <iostream>
 #include <vector>
-#include <fstream>
 
 using namespace std;
 using namespace cl;
-
 
 class Garden {  // Platform
 
@@ -21,9 +20,7 @@ class Garden {  // Platform
   Context context;
   Program program;
 
-
- public:
-  Garden();
+      public : Garden();
 
   friend class Keeper;
 };
@@ -32,7 +29,7 @@ class Environment {
  protected:
   string kernel;
   Program::Sources source;
-  
+
  public:
   Environment();
 
@@ -42,7 +39,7 @@ class Environment {
 class Keeper {
  protected:
   vector<Garden> gardens;
-  Environment env; 
+  Environment env;
 
  public:
   Keeper();
@@ -51,5 +48,3 @@ class Keeper {
   int SetKernel(string fname);
   int Build();
 };
-
-
