@@ -1,4 +1,4 @@
-kernel void sumVectors(global const float* A, global const float* B,
+kernel void SumVectors(global const float* A, global const float* B,
                        global float* C) {
   int i = get_global_id(0);
   C[i] = 0;
