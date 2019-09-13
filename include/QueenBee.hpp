@@ -13,16 +13,17 @@
 using namespace std;
 using namespace cl;
 
-
 class Argument {
  protected:
-  double* pointer;
+  void* pointer;
   std::size_t size;
+  vector<int> dimension;
   bool change;
   Buffer buffer;
 
  public:
-  Argument(double* arg_pointer, std::size_t data_size, bool flag_change);
+  Argument(void* arg_pointer, vector<int> dim, std::size_t data_size,
+           bool flag_change);
   friend class Keeper;
 };
 
@@ -34,15 +35,12 @@ class Task {
   vector<unsigned int> locals;
   vector<unsigned int> offsets;
 
-  //unsigned int global_id;
-  //unsigned int offset;
-
  public:
-  Task(string my_funcion_id, string my_parallel_method, vector<unsigned int> my_offsets,
-       vector<unsigned int> my_global_range, vector<unsigned int> my_local_range);
+  Task(string my_funcion_id, string my_parallel_method,
+       vector<unsigned int> my_offsets, vector<unsigned int> my_global_range,
+       vector<unsigned int> my_local_range);
   friend class Keeper;
 };
-
 
 class Function {
  protected:
@@ -51,12 +49,13 @@ class Function {
   Kernel kernel;
   vector<Argument> arguments;
   int Function::Write(CommandQueue& command, Buffer& buffer, bool block,
-                            unsigned int offset, std::size_t size,
-                            const void* data_point);
+                      unsigned int offset, std::size_t size,
+                      const void* data_point);
 
  public:
   Function(string my_function_id, string kernel_function_name);
-  int SetArgument(double* arg_pointer, std::size_t data_size, bool flag_change);
+  int SetArgument(void* arg_pointer, vector<int> dim, std::size_t data_size,
+                  bool flag_change);
 
   friend class Keeper;
 };
@@ -67,7 +66,6 @@ class Hive {
   string name;
   CommandQueue command;
   bool busy;
-  
 
  public:
   Hive(CommandQueue& comm, string id_name, cl_device_type device_type);
@@ -99,17 +97,17 @@ class Keeper {
   Program::Sources source;
   int Read(Hive& hive, Argument& arg, Task task);
   NDRange GetRange(vector<unsigned int> indexs);
+  int Build();
+  int SetGardens();
+  int SetKernel(string file_name);
+
  public:
   Keeper(string kernel_file_name);
   void Info();
-  int SetGardens();
-  int SetKernel(string file_name);
-  int Build();
   int SetFunction(Function& function);
-  int SetTask(string function_id, string parallel_method, vector<unsigned int> offset, vector<unsigned int> global_range,
+  int SetTask(string function_id, string parallel_method,
+              vector<unsigned int> offset, vector<unsigned int> global_range,
               vector<unsigned int> local_range = {});
   int Start();
-
   int Execute(Hive& hive, Function& func, Task task);
 };
-

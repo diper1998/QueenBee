@@ -38,7 +38,6 @@ int Keeper::SetGardens() {  // all platforms with devices
     gardens.push_back(garden);
   }
 
-  
   for (int i = 0; i < gardens.size(); i++) {
     for (int j = i + 1; j < gardens.size(); j++) {
       for (int n = 0; n < gardens[i].devices.size(); n++) {
@@ -57,7 +56,7 @@ int Keeper::SetGardens() {  // all platforms with devices
       }
     }
   }
-  
+
   return 1;
 }
 
@@ -151,25 +150,22 @@ int Keeper::Read(Hive& hive, Argument& arg, Task task) {
       hive.command.enqueueReadBuffer(
           arg.buffer, true, task.offsets[0] * sizeof(double),
           (task.globals[0] - task.offsets[0]) * sizeof(double),
-          arg.pointer + task.offsets[0]);
+          static_cast<double*>(arg.pointer) + task.offsets[0]);
 
       break;
 
     case 2:
 
       for (int i = task.offsets[0]; i < task.globals[0]; i++) {
-      
-		  hive.command.enqueueReadBuffer(
+        hive.command.enqueueReadBuffer(
             arg.buffer, false,
-            (i*4 + task.offsets[1]) * sizeof(double),
-             (task.globals[1] - task.offsets[1]) *
-                sizeof(double),
-            arg.pointer + task.offsets[1] + i*4);
+            (i * arg.dimension[0] + task.offsets[1]) * sizeof(double),
+            (task.globals[1] - task.offsets[1]) * sizeof(double),
+            static_cast<double*>(arg.pointer) + task.offsets[1] +
+                i * arg.dimension[0]);
+      }
 
-
-	  }
-
-	    hive.command.finish();
+      hive.command.finish();
 
       break;
 
@@ -209,8 +205,8 @@ int Keeper::Start() {
         if (tasks.size() != 0 && f.id == tasks.back().function_id) {
           for (auto& h : g.hives) {
             if ((tasks.size() != 0) &&
-                    ((tasks.back().parallel_method == "ALL" && !h.busy) ||
-                (h.name == tasks.back().parallel_method && !h.busy))) {
+                ((tasks.back().parallel_method == "ALL" && !h.busy) ||
+                 (h.name == tasks.back().parallel_method && !h.busy))) {
               cout << h.id;
               h.busy = true;
               thread tmp(&Keeper::Execute, this, std::ref(h), f, tasks.back());
@@ -241,11 +237,11 @@ int Function::Write(CommandQueue& command, Buffer& buffer, bool block,
   return 1;
 }
 
-Argument::Argument(double* arg_pointer, std::size_t data_size,
+Argument::Argument(void* arg_pointer, vector<int> dim, std::size_t data_size,
                    bool flag_change) {
   pointer = arg_pointer;
   size = data_size;
-
+  dimension = dim;
   change = flag_change;
 }
 
@@ -254,9 +250,9 @@ Function::Function(string my_function_id, string kernel_function_name) {
   name = kernel_function_name;
 }
 
-int Function::SetArgument(double* arg_pointer, std::size_t data_size,
-                          bool flag_change) {
-  Argument tmp(arg_pointer, data_size, flag_change);
+int Function::SetArgument(void* arg_pointer, vector<int> dim,
+                          std::size_t data_size, bool flag_change) {
+  Argument tmp(arg_pointer, dim, data_size, flag_change);
   arguments.push_back(tmp);
   return 1;
 }
