@@ -1,5 +1,7 @@
 #include "..\include\QueenBee.hpp"
 
+
+
 Keeper::Keeper(string kernel_file_name) {
   SetGardens();
   SetKernel(kernel_file_name);
@@ -44,15 +46,15 @@ int Keeper::SetGardens() {  // all platforms with devices
         for (int m = 0; m < gardens[j].devices.size(); m++) {
           if (gardens[i].devices[n].getInfo<CL_DEVICE_NAME>() ==
               gardens[j].devices[m].getInfo<CL_DEVICE_NAME>()) {
-            gardens[i].devices.erase(gardens[i].devices.begin() + n);
-            n--;
+            gardens[j].devices.erase(gardens[j].devices.begin() + m);
+            m--;
           }
         }
       }
 
-      if (gardens[i].devices.size() == 0) {
-        gardens.erase(gardens.begin() + i);
-        i--;
+      if (gardens[j].devices.size() == 0) {
+        gardens.erase(gardens.begin() + j);
+        j--;
       }
     }
   }
@@ -144,31 +146,26 @@ int Keeper::SetTask(string function_id, string parallel_method,
   return 1;
 }
 
-int Keeper::Read(Hive& hive, Argument& arg, Task task) {
-  switch (task.globals.size()) {
-    case 1:
-      hive.command.enqueueReadBuffer(
-          arg.buffer, true, task.offsets[0] * sizeof(double),
-          (task.globals[0] - task.offsets[0]) * sizeof(double),
-          static_cast<double*>(arg.pointer) + task.offsets[0]);
-
-      break;
-
+int Keeper::SetTasks(string function_id, string parallel_method,
+                     vector<unsigned int> steps,
+                     vector<unsigned int> global_range,
+                     vector<unsigned int> local_range) {
+  switch (global_range.size()) {
     case 2:
+      for (int i = 0; i < global_range[0] / steps[0]; i++) {
+        for (int j = 0; j < global_range[1] / steps[1]; j++) {
+          unsigned int offset_i = i*steps[0];
+          unsigned int offset_j = j*steps[1] ;
+          unsigned int global_i = steps[0] + i * steps[0];
+          unsigned int global_j = steps[1] + j * steps[1];
+          Task tmp(function_id, parallel_method, {offset_i, offset_j}, {global_i, global_j},
+                   local_range);
+          tasks.push_back(tmp);
 
-      for (int i = task.offsets[0]; i < task.globals[0]; i++) {
-        hive.command.enqueueReadBuffer(
-            arg.buffer, false,
-            (i * arg.dimension[0] + task.offsets[1]) * sizeof(double),
-            (task.globals[1] - task.offsets[1]) * sizeof(double),
-            static_cast<double*>(arg.pointer) + task.offsets[1] +
-                i * arg.dimension[0]);
+        }
       }
 
-      hive.command.finish();
-
       break;
-
     default:
       break;
   }
@@ -189,10 +186,17 @@ int Keeper::Execute(Hive& hive, Function& func, Task task) {
 
   for (auto& a : func.arguments) {
     if (a.change == true) {
-      Read(hive, a, task);
+      if (a.type == "float") Read<float>(hive, a, task);
+      if (a.type == "double") Read<double>(hive, a, task);
+      if (a.type == "int") Read<int>(hive, a, task);
+      if (a.type == "unsigned int") Read<unsigned int>(hive, a, task);
+      if (a.type == "short") Read<short>(hive, a, task);
+      if (a.type == "bool") Read<bool>(hive, a, task);
+      if (a.type == "char") Read<char>(hive, a, task);
     }
   }
 
+  hive.command.finish();
   hive.busy = false;
   return 0;
 }
@@ -230,15 +234,15 @@ int Keeper::Start() {
 Garden::Garden() {}
 
 int Function::Write(CommandQueue& command, Buffer& buffer, bool block,
-                    unsigned int offset, std::size_t size,
+                    unsigned int offset, unsigned int size,
                     const void* data_point) {
   command.enqueueWriteBuffer(buffer, block, offset, size, data_point);
 
   return 1;
 }
 
-Argument::Argument(void* arg_pointer, vector<int> dim, std::size_t data_size,
-                   bool flag_change) {
+Argument::Argument(void* arg_pointer, vector<unsigned int> dim,
+                   unsigned int data_size, bool flag_change) {
   pointer = arg_pointer;
   size = data_size;
   dimension = dim;
@@ -248,13 +252,6 @@ Argument::Argument(void* arg_pointer, vector<int> dim, std::size_t data_size,
 Function::Function(string my_function_id, string kernel_function_name) {
   id = my_function_id;
   name = kernel_function_name;
-}
-
-int Function::SetArgument(void* arg_pointer, vector<int> dim,
-                          std::size_t data_size, bool flag_change) {
-  Argument tmp(arg_pointer, dim, data_size, flag_change);
-  arguments.push_back(tmp);
-  return 1;
 }
 
 Hive::Hive(CommandQueue& comm, string id_name, cl_device_type device_type) {
