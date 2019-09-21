@@ -175,15 +175,16 @@ int Keeper::SetTasks(string function_id, string parallel_method,
 
 int Keeper::Execute(Hive& hive, Function& func, Task task) {
   int status = hive.command.enqueueNDRangeKernel(
-      func.kernel, GetRange(task.offsets), GetRange(task.globals),
+      func.kernel, GetRange(task.offsets), GetGlobalRange(task.globals, task.offsets),
       GetRange(task.locals));
+
+    hive.command.finish();
 
   if (status != CL_SUCCESS) {
     cout << "Error";
   }
 
-  hive.command.finish();
-
+  
   for (auto& a : func.arguments) {
     if (a.change == true) {
       if (a.type == "float") Read<float>(hive, a, task);
@@ -196,7 +197,7 @@ int Keeper::Execute(Hive& hive, Function& func, Task task) {
     }
   }
 
-  hive.command.finish();
+      hive.command.finish();
   hive.busy = false;
   return 0;
 }
@@ -211,11 +212,12 @@ int Keeper::Start() {
             if ((tasks.size() != 0) &&
                 ((tasks.back().parallel_method == "ALL" && !h.busy) ||
                  (h.name == tasks.back().parallel_method && !h.busy))) {
-              cout << h.id;
+              cout << h.id ;
               h.busy = true;
               thread tmp(&Keeper::Execute, this, std::ref(h), f, tasks.back());
               threads.push_back(move(tmp));
               tasks.pop_back();
+
               break;
             }
           }
@@ -224,6 +226,14 @@ int Keeper::Start() {
     }
   }
 
+  
+   for (auto& g : gardens) {
+    for (auto& h : g.hives) {
+      h.command.finish();
+    }
+  }
+
+  
   for (auto& th : threads) {
     th.join();
   }
@@ -263,6 +273,34 @@ Hive::Hive(CommandQueue& comm, string id_name, cl_device_type device_type) {
   if (device_type == CL_DEVICE_TYPE_CPU) name = "CPU";
   if (device_type == CL_DEVICE_TYPE_GPU) name = "GPU";
   if (device_type == CL_DEVICE_TYPE_ACCELERATOR) name = "ACC";
+}
+
+
+
+NDRange Keeper::GetGlobalRange(vector<unsigned int> global_range, vector<unsigned int> offset)
+{
+	NDRange range;
+  switch ( global_range.size()) {
+    case 0:
+      range = cl::NullRange;
+      break;
+
+    case 1:
+      range = NDRange( global_range[0] - offset[0]);
+      break;
+    case 2:
+      range = NDRange(global_range[0] - offset[0], global_range[1] - offset[1]);
+      break;
+    case 3:
+      range = NDRange(global_range[0] - offset[0], global_range[1] - offset[1], global_range[2] - offset[2]);
+      break;
+    default:
+      cout << endl << "ERROR:  0 <= range <= 3" << endl;
+      break;
+  }
+
+  return range;
+return NDRange();
 }
 
 NDRange Keeper::GetRange(vector<unsigned int> indexs) {
