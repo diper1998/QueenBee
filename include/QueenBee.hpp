@@ -4,16 +4,16 @@
 #if defined(__APPLE__) || defined(__MACOSX)
 #include <OpenCL/cl.hpp>
 #else
-#include <CL/cl.hpp>
+#include <Cl/cl.hpp>
 #endif
 #include <fstream>
 #include <iostream>
 #include <thread>
 #include <vector>
+#include <future>
 
 using namespace std;
 using namespace cl;
-
 
 class Argument {
  protected:
@@ -23,9 +23,10 @@ class Argument {
   bool change;
   Buffer buffer;
   string type;
+
  public:
-  Argument(void* arg_pointer, vector<unsigned int> dim,
-                               unsigned int data_size, bool flag_change);
+  Argument(void* arg_pointer, vector<unsigned int> dim, unsigned int data_size,
+           bool flag_change);
   friend class Function;
   friend class Keeper;
 };
@@ -66,7 +67,7 @@ class Function {
       data_size *= d;
     }
     data_size *= sizeof(Type);
-	Argument tmp(arg_pointer, dim, data_size, flag_change);
+    Argument tmp(arg_pointer, dim, data_size, flag_change);
     tmp.type = typeid(Type).name();
     arguments.push_back(tmp);
     return 1;
@@ -110,69 +111,28 @@ class Keeper {
   vector<Task> tasks;
   string kernel;
   Program::Sources source;
+  vector<thread> threads;
 
-  template <typename Type>
-  int Read(Hive& hive, Argument& arg, Task task){
-  
-  switch (task.globals.size()) {
-      case 1:
-      hive.command.enqueueReadBuffer(
-          arg.buffer, true, task.offsets[0] * sizeof(Type),
-          (task.globals[0] - task.offsets[0]) * sizeof(Type),
-          static_cast<Type*>(arg.pointer) + task.offsets[0]);
-
-        hive.command.finish();
-
-      break;
-
-    case 2:
-		
-      for (int i = task.offsets[0]; i < task.globals[0]; i++) {
-          hive.command.enqueueReadBuffer(
-              arg.buffer, CL_FALSE,
-              (i * arg.dimension[0] + task.offsets[1]) * sizeof(Type),
-              (task.globals[1] - task.offsets[1]) * sizeof(Type),
-              static_cast<Type*>(arg.pointer) + task.offsets[1] +
-                  i * arg.dimension[0]); 
-      }
- 
-	   hive.command.finish();
-
-	  /*
-
-		hive.command.enqueueReadBuffer(
-              arg.buffer, true,
-              0,
-              arg.size,
-              static_cast<Type*>(arg.pointer)); 
-			  */
-      break;
-
-    default:
-      break;
-    }
-
-    return 0;
-  
-  
-  
-  };
   NDRange GetRange(vector<unsigned int> indexs);
   int Build();
   int SetGardens();
   int SetKernel(string file_name);
-  NDRange GetGlobalRange(vector<unsigned int> global_range, vector<unsigned int> offset);
+  NDRange GetGlobalRange(vector<unsigned int> global_range,
+                         vector<unsigned int> offset);
+
  public:
   Keeper(string kernel_file_name);
+
   void Info();
   int SetFunction(Function& function);
   int SetTask(string function_id, string parallel_method,
               vector<unsigned int> offset, vector<unsigned int> global_range,
               vector<unsigned int> local_range = {});
-  int SetTasks(string function_id, string parallel_method, vector<unsigned int> steps,
-               vector<unsigned int> global_range,
+  int SetTasks(string function_id, string parallel_method,
+               vector<unsigned int> steps, vector<unsigned int> global_range,
                vector<unsigned int> local_range = {});
   int Start();
   int Execute(Hive& hive, Function& func, Task task);
-};
 
+  int Read();
+};

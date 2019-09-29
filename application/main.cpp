@@ -1,3 +1,5 @@
+
+#include <windows.h>
 #include <thread>
 #include "QueenBee.hpp"
 
@@ -9,7 +11,7 @@ template <typename Type>
 void MulMatrix(unsigned int size);
 
 int main(void) {
-  MulMatrix<int>(6000);
+  MulMatrix<int>(20);
 
   return 0;
 }
@@ -38,49 +40,76 @@ void MulMatrix(unsigned int size) {
 
   queen.SetFunction(MulMatrix);
 
- queen.SetTasks("mul", "GPU", {500, 500}, {6000, 6000});
 
-   //queen.SetTask("mul", "CPU", {0, 0}, {2, 2});
-   //   queen.SetTask("mul", "GPU", {2, 2}, {4, 4});
- // queen.SetTask("mul", "GPU", {4, 4}, {6, 6});
- //  queen.SetTask("mul", "CPU", {6, 6}, {8, 8});
+  queen.SetTask("mul", "CPU", {0, 0}, {5, 20});
+  queen.SetTask("mul", "GPU", {5, 0}, {10, 20});
+  queen.SetTask("mul", "GPU", {10, 0}, {15, 20});
+  queen.SetTask("mul", "CPU", {15, 0}, {20, 20});
 
- // queen.SetTask("mul", "GPU", {8, 8}, {16, 16});
-// queen.SetTask("mul", "CPU", {4, 0}, {4, 4});
-  //queen.SetTask("mul", "CPU", {0, 4}, {4, 4});
-  //queen.SetTask("mul", "CPU", {0, 4}, {4, 8});
- //queen.SetTask("mul", "CPU", {4, 4}, {4, 4});
+
+ 
+
+  // queen.SetTask("mul", "CPU", {0, 0}, {2, 2});
+  //   queen.SetTask("mul", "GPU", {2, 2}, {4, 4});
+  // queen.SetTask("mul", "GPU", {4, 4}, {6, 6});
+  //  queen.SetTask("mul", "CPU", {6, 6}, {8, 8});
+
+  // queen.SetTask("mul", "GPU", {8, 8}, {16, 16});
+  // queen.SetTask("mul", "CPU", {4, 0}, {4, 4});
+  // queen.SetTask("mul", "CPU", {0, 4}, {4, 4});
+  // queen.SetTask("mul", "CPU", {0, 4}, {4, 8});
+  // queen.SetTask("mul", "CPU", {4, 4}, {4, 4});
   // queen.SetTask("mul", "CPU", {0, 0}, {4, 4});
   // queen.SetTask("mul", "ALL", {0, 2}, {2, 4});
   // queen.SetTask("mul", "ALL", {2, 0}, {4, 2});
 
-  
-   // queen.SetTask("mul", "CPU", {0, 0}, {2, 2});
-   // queen.SetTask("mul", "CPU", {2, 2}, {4, 4});
-   // queen.SetTask("mul", "CPU", {4, 4}, {8, 8});
-   // queen.SetTask("mul", "CPU", {9, 9}, {16, 16});
-   // queen.SetTask("mul", "CPU", {17, 17}, {32, 32});
-    //queen.SetTask("mul", "GPU", {9, 9}, {16, 16});
+  // queen.SetTask("mul", "CPU", {0, 0}, {2, 2});
+  // queen.SetTask("mul", "CPU", {2, 2}, {4, 4});
+  // queen.SetTask("mul", "CPU", {4, 4}, {8, 8});
+  // queen.SetTask("mul", "CPU", {9, 9}, {16, 16});
+  // queen.SetTask("mul", "CPU", {17, 17}, {32, 32});
+  // queen.SetTask("mul", "GPU", {9, 9}, {16, 16});
+
+
+  LARGE_INTEGER frequency;
+  LARGE_INTEGER t1, t2;
+  double time;
+  QueryPerformanceFrequency(&frequency);
+
+  QueryPerformanceCounter(&t1);
+
   queen.Start();
+
+  queen.Read();
+  
+  QueryPerformanceCounter(&t2);
+  time = (t2.QuadPart - t1.QuadPart) / double(frequency.QuadPart);
+
+  printf("The time: %f seconds\n", time);
   /////////////////////////////////////////////
 
   cout << endl << endl;
 
   for (int i = 0; i < size; i++) {
     for (int j = 0; j < size; j++) {
-        //std::cout << C[i * size + j] << " ";
+        std::cout << C[i * size + j] << " ";
     }
-    //   cout << endl;
+    cout << endl;
   }
 
+  int n = 0;
   for (int i = 0; i < size * size; i++) {
-    if (C[i] != size * 2) {
-      std::cout << "Error" << C[i];
-      break;
+    
+	  if (C[i] != size * 2) {
+      n++;
+
     }
   }
+  cout << n << endl;
 
-  // delete[] A;
-  // delete[] B;
-  // delete[] C;
+
+
+   delete[] A;
+   delete[] B;
+   delete[] C;
 }

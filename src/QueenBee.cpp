@@ -1,7 +1,5 @@
 #include "..\include\QueenBee.hpp"
 
-
-
 Keeper::Keeper(string kernel_file_name) {
   SetGardens();
   SetKernel(kernel_file_name);
@@ -154,14 +152,13 @@ int Keeper::SetTasks(string function_id, string parallel_method,
     case 2:
       for (int i = 0; i < global_range[0] / steps[0]; i++) {
         for (int j = 0; j < global_range[1] / steps[1]; j++) {
-          unsigned int offset_i = i*steps[0];
-          unsigned int offset_j = j*steps[1] ;
+          unsigned int offset_i = i * steps[0];
+          unsigned int offset_j = j * steps[1];
           unsigned int global_i = steps[0] + i * steps[0];
           unsigned int global_j = steps[1] + j * steps[1];
-          Task tmp(function_id, parallel_method, {offset_i, offset_j}, {global_i, global_j},
-                   local_range);
+          Task tmp(function_id, parallel_method, {offset_i, offset_j},
+                   {global_i, global_j}, local_range);
           tasks.push_back(tmp);
-
         }
       }
 
@@ -175,35 +172,35 @@ int Keeper::SetTasks(string function_id, string parallel_method,
 
 int Keeper::Execute(Hive& hive, Function& func, Task task) {
   int status = hive.command.enqueueNDRangeKernel(
-      func.kernel, GetRange(task.offsets), GetGlobalRange(task.globals, task.offsets),
-      GetRange(task.locals));
+      func.kernel, GetRange(task.offsets),
+      GetGlobalRange(task.globals, task.offsets), GetRange(task.locals));
 
-    hive.command.finish();
+  hive.command.finish();
+  hive.busy = false;
 
   if (status != CL_SUCCESS) {
     cout << "Error";
   }
 
-  
-  for (auto& a : func.arguments) {
-    if (a.change == true) {
-      if (a.type == "float") Read<float>(hive, a, task);
-      if (a.type == "double") Read<double>(hive, a, task);
-      if (a.type == "int") Read<int>(hive, a, task);
-      if (a.type == "unsigned int") Read<unsigned int>(hive, a, task);
-      if (a.type == "short") Read<short>(hive, a, task);
-      if (a.type == "bool") Read<bool>(hive, a, task);
-      if (a.type == "char") Read<char>(hive, a, task);
-    }
-  }
-
-      hive.command.finish();
-  hive.busy = false;
   return 0;
 }
 
+int Keeper::Read() {
+
+
+  for (auto& f : gardens[0].functions) {
+    for (auto& arg : f.arguments) {
+      if (arg.change == true) {
+        gardens[0].hives[0].command.enqueueReadBuffer(arg.buffer, CL_TRUE, 0,
+                                                      arg.size, arg.pointer);
+      }
+    }
+  }
+  return 1;
+}
+
+
 int Keeper::Start() {
-  vector<thread> threads;
   while (tasks.size() != 0) {
     for (auto& g : gardens) {
       for (auto& f : g.functions) {
@@ -212,12 +209,11 @@ int Keeper::Start() {
             if ((tasks.size() != 0) &&
                 ((tasks.back().parallel_method == "ALL" && !h.busy) ||
                  (h.name == tasks.back().parallel_method && !h.busy))) {
-              cout << h.id ;
+              //cout << h.name + " ";
               h.busy = true;
               thread tmp(&Keeper::Execute, this, std::ref(h), f, tasks.back());
               threads.push_back(move(tmp));
               tasks.pop_back();
-
               break;
             }
           }
@@ -226,17 +222,29 @@ int Keeper::Start() {
     }
   }
 
-  
-   for (auto& g : gardens) {
+    for (auto& g : gardens) {
     for (auto& h : g.hives) {
       h.command.finish();
+      
+    }
+  }
+	
+
+
+	
+	    for (auto& g : gardens) {
+    for (auto& h : g.hives) {
+      while (h.busy) {
+        cout << "busy" + h.name << endl;
+      }
     }
   }
 
-  
+
   for (auto& th : threads) {
     th.join();
   }
+
 
   return 1;
 }
@@ -275,24 +283,23 @@ Hive::Hive(CommandQueue& comm, string id_name, cl_device_type device_type) {
   if (device_type == CL_DEVICE_TYPE_ACCELERATOR) name = "ACC";
 }
 
-
-
-NDRange Keeper::GetGlobalRange(vector<unsigned int> global_range, vector<unsigned int> offset)
-{
-	NDRange range;
-  switch ( global_range.size()) {
+NDRange Keeper::GetGlobalRange(vector<unsigned int> global_range,
+                               vector<unsigned int> offset) {
+  NDRange range;
+  switch (global_range.size()) {
     case 0:
       range = cl::NullRange;
       break;
 
     case 1:
-      range = NDRange( global_range[0] - offset[0]);
+      range = NDRange(global_range[0] - offset[0]);
       break;
     case 2:
       range = NDRange(global_range[0] - offset[0], global_range[1] - offset[1]);
       break;
     case 3:
-      range = NDRange(global_range[0] - offset[0], global_range[1] - offset[1], global_range[2] - offset[2]);
+      range = NDRange(global_range[0] - offset[0], global_range[1] - offset[1],
+                      global_range[2] - offset[2]);
       break;
     default:
       cout << endl << "ERROR:  0 <= range <= 3" << endl;
@@ -300,8 +307,10 @@ NDRange Keeper::GetGlobalRange(vector<unsigned int> global_range, vector<unsigne
   }
 
   return range;
-return NDRange();
+  return NDRange();
 }
+
+
 
 NDRange Keeper::GetRange(vector<unsigned int> indexs) {
   NDRange range;
