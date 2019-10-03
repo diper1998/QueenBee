@@ -1,7 +1,7 @@
-#pragma OPENCL EXTENSION cl_khr_fp64 : enable
 
-kernel void SumVectors(global const double* A, global const double* B,
-                       global double* C) {
+
+kernel void SumVectors(global const int* A, global const int* B,
+                       global int* C) {
   int i = get_global_id(0);
   C[i] = A[i] + B[i];
 
@@ -12,7 +12,7 @@ kernel void MulMatrix(global const int* A, global const int* B,
   int i = get_global_id(1);
   int j = get_global_id(0);
   int size = *ptrSize;
- C[i*size+j] = 0;
+ //C[i*size+j] = 5;
   for (int k = 0; k < size; k++)
     C[i * size + j] += A[i * size + k] * B[k * size + j];
 

@@ -82,7 +82,7 @@ class Hive {
   string name;
   CommandQueue command;
   bool busy;
-
+  vector <future<int>*> fu;
  public:
   Hive(CommandQueue& comm, string id_name, cl_device_type device_type);
 
@@ -112,7 +112,7 @@ class Keeper {
   string kernel;
   Program::Sources source;
   vector<thread> threads;
-
+  vector<std::future<int>> fu;
   NDRange GetRange(vector<unsigned int> indexs);
   int Build();
   int SetGardens();
@@ -135,4 +135,9 @@ class Keeper {
   int Execute(Hive& hive, Function& func, Task task);
 
   int Read();
+
+  template <typename T>
+  bool future_is_ready(std::future<T>& t) {
+    return t.wait_for(std::chrono::seconds(0)) == std::future_status::ready;
+  }
 };

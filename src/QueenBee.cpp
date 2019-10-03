@@ -186,8 +186,6 @@ int Keeper::Execute(Hive& hive, Function& func, Task task) {
 }
 
 int Keeper::Read() {
-
-
   for (auto& f : gardens[0].functions) {
     for (auto& arg : f.arguments) {
       if (arg.change == true) {
@@ -199,7 +197,6 @@ int Keeper::Read() {
   return 1;
 }
 
-
 int Keeper::Start() {
   while (tasks.size() != 0) {
     for (auto& g : gardens) {
@@ -209,10 +206,29 @@ int Keeper::Start() {
             if ((tasks.size() != 0) &&
                 ((tasks.back().parallel_method == "ALL" && !h.busy) ||
                  (h.name == tasks.back().parallel_method && !h.busy))) {
-              //cout << h.name + " ";
+              cout << h.name + " ";
               h.busy = true;
-              thread tmp(&Keeper::Execute, this, std::ref(h), f, tasks.back());
-              threads.push_back(move(tmp));
+
+
+			  auto entry =
+               std::async(launch::async, &Keeper::Execute, this,
+                                std::ref(h), f, tasks.back());
+               // std::cout << "foo has finished, back in entry()\n";
+              
+
+              /*std::async(std::launch::async, &Keeper::Execute, this,
+                            std::ref(h), f, tasks.back());
+			  */
+              /*
+                              for (auto& f : h.fu) {
+    while (!future_is_ready(*f)) {
+      cout << "is not ready" << endl;
+    }
+  }
+  */
+              // thread tmp(&Keeper::Execute, this, std::ref(h), f,
+             //  tasks.back()); threads.push_back(move(tmp));
+            //   threads.push_back(move(tmp));
               tasks.pop_back();
               break;
             }
@@ -222,17 +238,13 @@ int Keeper::Start() {
     }
   }
 
-    for (auto& g : gardens) {
+  for (auto& g : gardens) {
     for (auto& h : g.hives) {
       h.command.finish();
-      
     }
   }
-	
 
-
-	
-	    for (auto& g : gardens) {
+  for (auto& g : gardens) {
     for (auto& h : g.hives) {
       while (h.busy) {
         cout << "busy" + h.name << endl;
@@ -240,12 +252,11 @@ int Keeper::Start() {
     }
   }
 
-
+  
   for (auto& th : threads) {
     th.join();
   }
-
-
+  
   return 1;
 }
 
@@ -307,10 +318,7 @@ NDRange Keeper::GetGlobalRange(vector<unsigned int> global_range,
   }
 
   return range;
-  return NDRange();
 }
-
-
 
 NDRange Keeper::GetRange(vector<unsigned int> indexs) {
   NDRange range;
