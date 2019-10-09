@@ -15,8 +15,11 @@ void SumVectors(unsigned int size);
 
 int main(void) {
 
-  MulMatrix<int>(6000);
- // SumVectors<int>(80);
+
+  MulMatrix<int>(16000);
+
+
+
   return 0;
 }
 template <typename Type>
@@ -25,7 +28,8 @@ void MulMatrix(unsigned int size) {
   Type* B = new Type[size * size];
   Type* C = new Type[size * size];
 
-  for (int i = 0; i < size * size; i++) {
+
+  for (unsigned int i = 0; i < size * size; i++) {
     A[i] = 1;
     B[i] = 2;
     C[i] = 0;
@@ -33,9 +37,31 @@ void MulMatrix(unsigned int size) {
 
   unsigned int* ptr_size = &size;
 
+
+   Type* A1 = new Type[size];
+  Type* B1 = new Type[size];
+  Type* C1 = new Type[size];
+
+  for (unsigned int i = 0; i < size; i++) {
+    A1[i] = 1;
+    B1[i] = 2;
+    C1[i] = 0;
+  }
+
   ///////////////////////////////////////////////
   Keeper queen("kernel.txt");
-  queen.Info();
+
+  Function SumVectors("sum", "SumVectors");
+  SumVectors.SetArgument<Type>(A1, {size}, false);
+  SumVectors.SetArgument<Type>(B1, {size}, false);
+  SumVectors.SetArgument<Type>(C1, {size},  true);
+
+  queen.SetFunction(SumVectors);
+
+
+
+  ///////////////////////////////////////////////
+
   Function MulMatrix("mul", "MulMatrix");
   MulMatrix.SetArgument<Type>(A, {size, size}, false);
   MulMatrix.SetArgument<Type>(B, {size, size}, false);
@@ -44,40 +70,24 @@ void MulMatrix(unsigned int size) {
 
   queen.SetFunction(MulMatrix);
 
-    queen.SetTask("mul", "CPU", {0, 0}, {3000, 3000});
-  queen.SetTask("mul", "GPU", {0, 3000}, {3000, 6000});
-    queen.SetTask("mul", "CPU", {3000, 0}, {6000, 3000});
-  queen.SetTask("mul", "GPU", {3000, 3000}, {size, size});
+    queen.Info();
 
 
-  //queen.SetTask("mul", "CPU", {0, 0}, {5, 20});
-  //queen.SetTask("mul", "GPU", {5, 0}, {10, 20});
-  //queen.SetTask("mul", "GPU", {10, 0}, {15, 20});
-  //queen.SetTask("mul", "CPU", {15, 0}, {20, 20});
+
+ queen.SetTasks("sum", "ALL", {size/16}, {size});
+
+ //  queen.SetTasks("mul", "ALL", {4, 4}, {16, 16});
+ //   queen.SetTask("mul", "CPU", {0, 0}, {4, 4});
+ //   queen.SetTask("mul", "GPU", {4, 4}, {8, 8});
+ //   queen.SetTask("mul", "GPU", {8, 8}, {12, 12});
+ //   queen.SetTask("mul", "CPU", {12, 12}, {16, 16});
+
+   // queen.SetTask("sum", "GPU", {0}, {1});
+  // queen.SetTask("sum", "ALL", {1000}, {2000});
+   
 
 
- 
 
-  // queen.SetTask("mul", "CPU", {0, 0}, {2, 2});
-  //   queen.SetTask("mul", "GPU", {2, 2}, {4, 4});
-  // queen.SetTask("mul", "GPU", {4, 4}, {6, 6});
-  //  queen.SetTask("mul", "CPU", {6, 6}, {8, 8});
-
-  // queen.SetTask("mul", "GPU", {8, 8}, {16, 16});
-  // queen.SetTask("mul", "CPU", {4, 0}, {4, 4});
-  // queen.SetTask("mul", "CPU", {0, 4}, {4, 4});
-  // queen.SetTask("mul", "CPU", {0, 4}, {4, 8});
-  // queen.SetTask("mul", "CPU", {4, 4}, {4, 4});
-  // queen.SetTask("mul", "CPU", {0, 0}, {4, 4});
-  // queen.SetTask("mul", "ALL", {0, 2}, {2, 4});
-  // queen.SetTask("mul", "ALL", {2, 0}, {4, 2});
-
-  // queen.SetTask("mul", "CPU", {0, 0}, {2, 2});
-  // queen.SetTask("mul", "CPU", {2, 2}, {4, 4});
-  // queen.SetTask("mul", "CPU", {4, 4}, {8, 8});
-  // queen.SetTask("mul", "CPU", {9, 9}, {16, 16});
-  // queen.SetTask("mul", "CPU", {17, 17}, {32, 32});
-  // queen.SetTask("mul", "GPU", {9, 9}, {16, 16});
 
 
   LARGE_INTEGER frequency;
@@ -98,29 +108,48 @@ void MulMatrix(unsigned int size) {
   /////////////////////////////////////////////
 
   cout << endl << endl;
-
+  
   for (int i = 0; i < size; i++) {
     for (int j = 0; j < size; j++) {
-      //  std::cout << C[i * size + j] << " ";
+       // std::cout << C[i * size + j] << " ";
     }
     //cout << endl;
   }
-
+  
   int n = 0;
-  for (int i = 0; i < size * size; i++) {
+  for (unsigned int i = 0; i < size * size; i++) {
     
 	  if (C[i] != size * 2) {
       n++;
 
     }
   }
-  cout << n << endl;
 
+  cout <<"!!!!!!!!!!!!!!!!!n = "<< n << endl;
+
+
+
+  for (unsigned int i = 0; i < size; i++) {
+    std::cout << C1[i] << " ";
+  }
+
+  n = 0;
+  for (unsigned int i = 0; i < size; i++) {
+    if (C1[i] != 3) {
+      n++;
+    }
+  }
+  cout << endl;
+  cout << n << endl;
 
 
    delete[] A;
    delete[] B;
    delete[] C;
+
+   delete[] A1;
+   delete[] B1;
+   delete[] C1;
 }
 
 template <typename Type>
@@ -129,7 +158,7 @@ void SumVectors(unsigned int size) {
   Type* B = new Type[size];
   Type* C = new Type[size];
 
-  for (int i = 0; i < size; i++) {
+  for (unsigned int i = 0; i < size; i++) {
     A[i] = 1;
     B[i] = 2;
     C[i] = 0;
@@ -146,12 +175,15 @@ void SumVectors(unsigned int size) {
   SumVectors.SetArgument<Type>(C, {size}, true);
 
   queen.SetFunction(SumVectors);
-
+  queen.SetTask("sum", "CPU", {40}, {80});
+  queen.SetTask("sum", "CPU", {10}, {20});
  queen.SetTask("sum", "CPU", {0}, {5});
   queen.SetTask("sum", "GPU", {5}, {10});
-  queen.SetTask("sum", "GPU", {10}, {20});
-  queen.SetTask("sum", "CPU", {20}, {40});
-  queen.SetTask("sum", "CPU", {40}, {80});
+ queen.SetTask("sum", "GPU", {20}, {40});
+
+
+
+
 
   LARGE_INTEGER frequency;
   LARGE_INTEGER t1, t2;
@@ -172,14 +204,14 @@ void SumVectors(unsigned int size) {
 
   cout << endl << endl;
 
-  for (int i = 0; i < size; i++) {
+  for (unsigned int i = 0; i < size; i++) {
     
       std::cout << C[i] << " ";
 
   }
 
   int n = 0;
-  for (int i = 0; i < size; i++) {
+  for (unsigned int i = 0; i < size; i++) {
     if (C[i] !=   3) {
       n++;
     }

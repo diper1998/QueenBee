@@ -6,11 +6,12 @@
 #else
 #include <Cl/cl.hpp>
 #endif
+#include <windows.h>
 #include <fstream>
+#include <future>
 #include <iostream>
 #include <thread>
 #include <vector>
-#include <future>
 
 using namespace std;
 using namespace cl;
@@ -18,10 +19,11 @@ using namespace cl;
 class Argument {
  protected:
   void* pointer;
-  std::size_t size;
+  unsigned int size;
   vector<unsigned int> dimension;
   bool change;
   Buffer buffer;
+  vector<Buffer> buffers;
   string type;
 
  public:
@@ -80,11 +82,16 @@ class Hive {
  protected:
   string id;
   string name;
+  Context context;
+  vector<Device> device;
+  Program program;
   CommandQueue command;
-  bool busy;
-  vector <future<int>*> fu;
- public:
-  Hive(CommandQueue& comm, string id_name, cl_device_type device_type);
+  vector<Function> functions;
+  Event event;
+  vector<Task> completed;
+
+      public : Hive(Device& dev, CommandQueue& comm, Context& cont,
+                    Program& prog, string id_name, cl_device_type device_type);
 
   friend class Keeper;
 };
@@ -95,9 +102,8 @@ class Garden {  // Platform
   Platform platform;
   vector<Device> devices;
   vector<Hive> hives;
-  Context context;
-  Program program;
-  vector<Function> functions;
+  // Context context;
+  // Program program;
 
  public:
   Garden();
@@ -112,7 +118,6 @@ class Keeper {
   string kernel;
   Program::Sources source;
   vector<thread> threads;
-  vector<std::future<int>> fu;
   NDRange GetRange(vector<unsigned int> indexs);
   int Build();
   int SetGardens();
@@ -136,8 +141,41 @@ class Keeper {
 
   int Read();
 
-  template <typename T>
-  bool future_is_ready(std::future<T>& t) {
-    return t.wait_for(std::chrono::seconds(0)) == std::future_status::ready;
-  }
+   template <typename Type>
+  int Read(Hive& hive, Argument& arg, Task task) {
+    switch (task.globals.size()) {
+      case 1:
+        hive.command.enqueueReadBuffer(
+            arg.buffer, CL_TRUE, task.offsets[0] * sizeof(Type),
+            (task.globals[0] - task.offsets[0]) * sizeof(Type),
+            static_cast<Type*>(arg.pointer) + task.offsets[0]);
+
+        break;
+
+      case 2:
+        
+              hive.command.enqueueReadBuffer(arg.buffer, CL_TRUE, 0, arg.size,
+                                          arg.pointer);
+            
+          
+        
+        /*
+        for (unsigned int i = task.offsets[0]; i < task.globals[0]; i++) {
+          hive.command.enqueueReadBuffer(
+              arg.buffer, CL_TRUE,
+              (i * arg.dimension[0] + task.offsets[1]) * sizeof(Type),
+              (task.globals[1] - task.offsets[1]) * sizeof(Type),
+              static_cast<Type*>(arg.pointer) + task.offsets[1] +
+                  i * arg.dimension[0]);
+        }
+		*/
+        break;
+
+      default:
+        break;
+    }
+
+    return 0;
+  };
+
 };
