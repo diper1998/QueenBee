@@ -1,30 +1,80 @@
 #include "..\include\QueenBee.hpp"
 
+int Keeper::Launch() {
+  while (enable) {
+    Start();
+  }
+
+  return 0;
+}
+
+int Keeper::Stop() {
+  Wait();
+  enable = false;
+  //ptr_thread->detach();
+  ptr_thread->join();
+
+  return 0;
+}
+
+int Keeper::Wait() {
+  while (tasks.size() != 0) {
+  }
+
+  for (auto& g : gardens) {
+    for (auto& h : g.hives) {
+      h.command.finish();
+      while (h.event.getInfo<CL_EVENT_COMMAND_EXECUTION_STATUS>() !=
+             CL_COMPLETE) {
+        cout << h.name + ":busy" << endl;
+      }
+    }
+  }
+
+  return 0;
+}
+
 Keeper::Keeper(string kernel_file_name) {
   SetGardens();
   SetKernel(kernel_file_name);
   Build();
+  enable = true;
+  //ptr_thread = new thread(&Keeper::Launch, std::ref(*this));
 }
 
-void Keeper::Info() {
+void Keeper::Info(string mode) {
   cout << endl;
-  for (const auto& g : gardens) {
-    cout << g.platform.getInfo<CL_PLATFORM_NAME>() << endl;
 
-    for (const auto& d : g.devices) {
-      cout << d.getInfo<CL_DEVICE_TYPE>() << ": " << d.getInfo<CL_DEVICE_NAME>()
-           << endl;
+  if (mode == "ALL" || mode == "DEV") {
+    for (const auto& g : gardens) {
+      cout << g.platform.getInfo<CL_PLATFORM_NAME>() << endl;
+
+      for (const auto& d : g.devices) {
+        cout << d.getInfo<CL_DEVICE_TYPE>() << ": "
+             << d.getInfo<CL_DEVICE_NAME>() << endl;
+      }
+    }
+    cout << endl << kernel << endl;
+
+    for (const auto& g : gardens) {
+      for (const auto& h : g.hives) {
+        cout << endl
+             << h.program.getBuildInfo<CL_PROGRAM_BUILD_LOG>(h.device.back())
+             << endl;
+      }
     }
   }
-  cout << endl << kernel << endl;
 
-  for (const auto& g : gardens) {
-    for (const auto& h : g.hives) {
-      cout << endl
-           << h.program.getBuildInfo<CL_PROGRAM_BUILD_LOG>(h.device.back())
-           << endl;
+  if (mode == "ALL" || mode == "STAT") {
+    for (auto& g : gardens) {
+      for (auto& h : g.hives) {
+        cout << h.name + ":" << h.completed.size() << endl;
+      }
     }
   }
+
+ cout << endl;
+
 }
 
 int Keeper::SetGardens() {  // all platforms with devices
@@ -99,26 +149,7 @@ int Keeper::Build() {
       }
     }
   }
-  /*
-    Context context(g.devices);
-    g.context = context;
 
-    Program program(g.context, source);
-    g.program = program;
-
-    if (g.program.build(g.devices) != CL_SUCCESS) {
-      for (const auto& d : g.devices)
-        cout << endl << g.program.getBuildInfo<CL_PROGRAM_BUILD_LOG>(d) << endl;
-    }
-
-    for (auto& d : g.devices) {
-      CommandQueue command(g.context, d);
-      Hive hive(command, g.context, d.getInfo<CL_DEVICE_NAME>(),
-                d.getInfo<CL_DEVICE_TYPE>());
-      g.hives.push_back(hive);
-    }
-  }
-  */
   return 1;
 }
 
@@ -139,10 +170,14 @@ int Keeper::SetFunction(Function& function) {
       function.kernel = func;
       i = 0;
       for (auto& a : function.arguments) {
-        Buffer buff(h.context, CL_MEM_READ_WRITE, a.size);
-        a.buffer = buff;
-        function.Write(h.command, a.buffer, CL_TRUE, 0, a.size, a.pointer);
-        function.kernel.setArg(i, a.buffer);
+        if (a.pointer != NULL) {
+          Buffer buff(h.context, CL_MEM_READ_WRITE, a.size);
+          a.buffer = buff;
+          function.Write(h.command, a.buffer, CL_TRUE, 0, a.size, a.pointer);
+          function.kernel.setArg(i, a.buffer);
+        } else {
+          function.kernel.setArg(i, a.size, a.pointer);
+        }
         i++;
       }
 
@@ -150,27 +185,7 @@ int Keeper::SetFunction(Function& function) {
     }
   }
 
-  /*
-    cl::Kernel func(g.program, function.name.c_str());
-    function.kernel = func;
-    i = 0;
-    for (auto& a : function.arguments) {
-      if (!a.change) {
-        Buffer buff(g.context, CL_MEM_READ_WRITE, a.size);
-        a.buffer = buff;
-        function.Write(g.hives[0].command, a.buffer, CL_TRUE, 0, a.size,
-                       a.pointer);
-        // a.buffer = buff;
-        function.kernel.setArg(i, a.buffer);
-        i++;
-      } else {
-        for (auto& h : g.hives) {
-        }
-      }
-    }
-    g.functions.push_back(function);
-  }
-  */
+
   return 1;
 }
 
@@ -193,14 +208,13 @@ int Keeper::SetTasks(string function_id, string parallel_method,
       for (unsigned int i = 0; i < global_range[0] / steps[0]; i++) {
         unsigned int offset_i = i * steps[0];
         unsigned int global_i = steps[0] + i * steps[0];
-        Task tmp(function_id, parallel_method, {offset_i},
-                 {global_i}, local_range);
+        Task tmp(function_id, parallel_method, {offset_i}, {global_i},
+                 local_range);
         tasks.push_back(tmp);
-
-	  }
+      }
 
       break;
-	case 2:
+    case 2:
       for (unsigned int i = 0; i < global_range[0] / steps[0]; i++) {
         for (unsigned int j = 0; j < global_range[1] / steps[1]; j++) {
           unsigned int offset_i = i * steps[0];
@@ -239,51 +253,21 @@ int Keeper::Execute(Hive& hive, Function& func, Task task) {
 
 int Keeper::Read() {
   for (auto& g : gardens) {
-    for (auto& h : g.hives) {
-      h.command.finish();
-      while (h.event.getInfo<CL_EVENT_COMMAND_EXECUTION_STATUS>() !=
-             CL_COMPLETE) {
-        cout << h.name << "busy" << endl;
-      }
-    }
-  }
-
-  for (auto& g : gardens) {
     for (auto& hive : g.hives) {
       for (auto& task : hive.completed) {
         for (auto& f : hive.functions) {
           if (task.function_id == f.id) {
             for (auto& a : f.arguments) {
               if (a.change) {
-                if (a.type == "float") Read<float>(hive, a, task);
-                if (a.type == "double") Read<double>(hive, a, task);
-                if (a.type == "int") Read<int>(hive, a, task);
-                if (a.type == "unsigned int") Read<unsigned int>(hive, a, task);
-                if (a.type == "short") Read<short>(hive, a, task);
-                if (a.type == "bool") Read<bool>(hive, a, task);
-                if (a.type == "char") Read<char>(hive, a, task);
-
-                /* hive.command.finish();
-
-                 cout << task.offsets[0] << " " << task.offsets[1] << endl;
-                 cout << task.globals[0] << " " << task.globals[1] << endl;
-                 for (int i = 0; i < 16; i++) {
-                   for (int j = 0; j < 16; j++) {
-                     std::cout << static_cast<int*>(a.pointer)[i * 16 + j]
-                               << " ";
-                   }
-                   cout << endl;
-                 }
-
-                 int n = 0;
-                 for (unsigned int i = 0; i < 16 * 16; i++) {
-                   if (static_cast<int*>(a.pointer)[i] != 16 * 2) {
-                     n++;
-                   }
-                 }
-
-                 cout << "!!!!!!!!!!!!!!!!!n = " << n << endl;
-                                 */
+                if (a.type == "float") Read<float>(hive, a, task, a.pointer);
+                if (a.type == "double") Read<double>(hive, a, task, a.pointer);
+                if (a.type == "int") Read<int>(hive, a, task, a.pointer);
+                if (a.type == "unsigned int")
+                  Read<unsigned int>(hive, a, task, a.pointer);
+                if (a.type == "short") Read<short>(hive, a, task, a.pointer);
+                if (a.type == "bool") Read<bool>(hive, a, task, a.pointer);
+                if (a.type == "char") Read<char>(hive, a, task, a.pointer);
+          
               }
             }
           }
@@ -292,54 +276,35 @@ int Keeper::Read() {
     }
   }
 
-  /*
-for (auto& f : h.functions) {
-for (auto& arg : f.arguments) {
-  if (arg.change == true) {
-    h.command.enqueueReadBuffer(
-        arg.buffer, CL_TRUE, 0, arg.size, arg.pointer);
-  }
-}
-}
 
 
-}
-}
-/*
-for (auto& f : gardens[0].functions) {
-for (auto& arg : f.arguments) {
-if (arg.change == true) {
-gardens[0].hives[1].command.enqueueReadBuffer(arg.buffer, CL_TRUE, 0,
-                                              arg.size, arg.pointer);
-}
-}
-}
-*/
   return 1;
 }
 
 int Keeper::Start() {
+
   while (tasks.size() != 0) {
     for (auto& g : gardens) {
       for (auto& h : g.hives) {
         for (auto& f : h.functions) {
           if (tasks.size() != 0 && f.id == tasks.back().function_id) {
-            if ((tasks.size() != 0) &&
-                ((tasks.back().parallel_method == "ALL" &&
-                  h.event.getInfo<CL_EVENT_COMMAND_EXECUTION_STATUS>() ==
-                      CL_COMPLETE) ||
-                 (h.name == tasks.back().parallel_method &&
-                  h.event.getInfo<CL_EVENT_COMMAND_EXECUTION_STATUS>() ==
-                      CL_COMPLETE))) {
-              cout << h.name << "START" << endl;
-              int status = h.command.enqueueNDRangeKernel(
-                  f.kernel, GetRange(tasks.back().offsets),
-                  GetGlobalRange(tasks.back().globals, tasks.back().offsets),
-                  GetRange(tasks.back().locals), NULL, &h.event);
-              h.command.finish();
-              h.completed.push_back(tasks.back());
-              tasks.pop_back();
-              break;
+            if (tasks.size() != 0) {
+              if (((tasks.back().parallel_method == "ALL" &&
+                    h.event.getInfo<CL_EVENT_COMMAND_EXECUTION_STATUS>() ==
+                        CL_COMPLETE) ||
+                   (h.name == tasks.back().parallel_method &&
+                    h.event.getInfo<CL_EVENT_COMMAND_EXECUTION_STATUS>() ==
+                        CL_COMPLETE))) {
+                cout << "start:" + h.name << endl;              
+                int status = h.command.enqueueNDRangeKernel(
+                    f.kernel, GetRange(tasks.back().offsets),
+                    GetGlobalRange(tasks.back().globals, tasks.back().offsets),
+                    GetRange(tasks.back().locals), NULL, &h.event);
+                h.completed.push_back(tasks.back());
+                if (tasks.size()!= 0)
+                tasks.pop_back();
+                break;
+              }
             }
           }
         }
@@ -347,66 +312,6 @@ int Keeper::Start() {
     }
   }
 
-  /*
-while (tasks.size() != 0) {
-for (auto& g : gardens) {
-for (auto& f : g.functions) {
-  if (tasks.size() != 0 && f.id == tasks.back().function_id) {
-    for (auto& h : g.hives) {
-      if ((tasks.size() != 0) &&
-          ((tasks.back().parallel_method == "ALL" && !h.busy) ||
-           (h.name == tasks.back().parallel_method && !h.busy))) {
-        cout << h.name + " ";
-        h.busy = true;
-
-        /* auto entry =
-std::async(launch::async, &Keeper::Execute, this,
-               std::ref(h), f, tasks.back());*/
-
-  // std::cout << "foo has finished, back in entry()\n";
-
-  /*std::async(std::launch::async, &Keeper::Execute, this,
-                std::ref(h), f, tasks.back());
-              */
-  /*
-                  for (auto& f : h.fu) {
-while (!future_is_ready(*f)) {
-cout << "is not ready" << endl;
-}
-}
-
-  //   thread tmp(&Keeper::Execute, this, std::ref(h), f,
-  // tasks.back()); threads.push_back(move(tmp));
-  threads.push_back(
-      thread(&Keeper::Execute, this, std::ref(h), f, tasks.back()));
-  tasks.pop_back();
-  break;
-}
-}
-}
-}
-}
-}
-
-for (auto& g : gardens) {
-for (auto& h : g.hives) {
-h.command.finish();
-}
-}
-
-for (auto& g : gardens) {
-for (auto& h : g.hives) {
-while (h.busy) {
-cout << "busy" + h.name << endl;
-}
-}
-}
-
-for (auto& th : threads) {
-th.join();
-}
-
-*/
 
   return 1;
 }
@@ -429,9 +334,11 @@ Argument::Argument(void* arg_pointer, vector<unsigned int> dim,
   change = flag_change;
 }
 
-Function::Function(string my_function_id, string kernel_function_name) {
+Function::Function(string my_function_id, string kernel_function_name,
+                   bool inv) {
   id = my_function_id;
   name = kernel_function_name;
+  inverse = inv;
 }
 
 Hive::Hive(Device& dev, CommandQueue& comm, Context& cont, Program& prog,

@@ -3,31 +3,31 @@
 #include <thread>
 #include "QueenBee.hpp"
 
-int func(string name) {
-  cout << name;
-  return 1;
-}
 template <typename Type>
 void MulMatrix(unsigned int size);
 
 template <typename Type>
+void MulMatrixOpt(unsigned int size);
+
+template <typename Type>
 void SumVectors(unsigned int size);
 
+void MonteCarlo(unsigned int size);
+
 int main(void) {
-
-
-  MulMatrix<int>(16000);
-
-
-
+ // MulMatrixOpt<float>(10000);
+ // SumVectors<float>(10000000);
+ MonteCarlo(1000000);
   return 0;
 }
+
+
+
 template <typename Type>
 void MulMatrix(unsigned int size) {
   Type* A = new Type[size * size];
   Type* B = new Type[size * size];
   Type* C = new Type[size * size];
-
 
   for (unsigned int i = 0; i < size * size; i++) {
     A[i] = 1;
@@ -37,32 +37,16 @@ void MulMatrix(unsigned int size) {
 
   unsigned int* ptr_size = &size;
 
-
-   Type* A1 = new Type[size];
-  Type* B1 = new Type[size];
-  Type* C1 = new Type[size];
-
-  for (unsigned int i = 0; i < size; i++) {
-    A1[i] = 1;
-    B1[i] = 2;
-    C1[i] = 0;
-  }
+  LARGE_INTEGER frequency;
+  LARGE_INTEGER t1, t2;
+  double time;
+  QueryPerformanceFrequency(&frequency);
 
   ///////////////////////////////////////////////
   Keeper queen("kernel.txt");
 
-  Function SumVectors("sum", "SumVectors");
-  SumVectors.SetArgument<Type>(A1, {size}, false);
-  SumVectors.SetArgument<Type>(B1, {size}, false);
-  SumVectors.SetArgument<Type>(C1, {size},  true);
-
-  queen.SetFunction(SumVectors);
-
-
-
-  ///////////////////////////////////////////////
-
-  Function MulMatrix("mul", "MulMatrix");
+ 
+  Function MulMatrix("mul", "MulMatrix", true);
   MulMatrix.SetArgument<Type>(A, {size, size}, false);
   MulMatrix.SetArgument<Type>(B, {size, size}, false);
   MulMatrix.SetArgument<Type>(C, {size, size}, true);
@@ -70,87 +54,133 @@ void MulMatrix(unsigned int size) {
 
   queen.SetFunction(MulMatrix);
 
-    queen.Info();
+  queen.Info();
+
+  queen.SetTasks("mul", "GPU", {size, size/2}, {size, size});
+
+ QueryPerformanceCounter(&t1);
+
+ queen.Start();
+ queen.Wait();
+ queen.Read();
+ queen.Stop();
+ QueryPerformanceCounter(&t2);
+ time = (t2.QuadPart - t1.QuadPart) / double(frequency.QuadPart);
+
+  cout << "The time: seconds\n"<< time << endl;
+
+  /////////////////////////////////////////////
+
+  /*
+  for (int i = 0; i < size; i++) {
+    for (int j = 0; j < size; j++) {
+   std::cout << C[i * size + j] << " ";
+    }
+      cout << endl;
+  }
+  */
+
+  int error = 0;
+  for (unsigned int i = 0; i < size * size; i++) {
+    if (C[i] != size * 2) {
+      error++;
+    }
+  }
+
+  cout << "ERROR = " << error << endl;
 
 
-
- queen.SetTasks("sum", "ALL", {size/16}, {size});
-
- //  queen.SetTasks("mul", "ALL", {4, 4}, {16, 16});
- //   queen.SetTask("mul", "CPU", {0, 0}, {4, 4});
- //   queen.SetTask("mul", "GPU", {4, 4}, {8, 8});
- //   queen.SetTask("mul", "GPU", {8, 8}, {12, 12});
- //   queen.SetTask("mul", "CPU", {12, 12}, {16, 16});
-
-   // queen.SetTask("sum", "GPU", {0}, {1});
-  // queen.SetTask("sum", "ALL", {1000}, {2000});
-   
+  delete[] A;
+  delete[] B;
+  delete[] C;
 
 
+}
 
 
+template <typename Type>
+void MulMatrixOpt(unsigned int size) {
+  Type* A = new Type[size * size];
+  Type* B = new Type[size * size];
+  Type* C = new Type[size * size];
+  unsigned int block = 16;
 
+  Type* a = NULL;
+  Type* b = NULL;
+
+  for (unsigned int i = 0; i < size * size; i++) {
+    A[i] = 1;
+    B[i] = 2;
+    C[i] = 0;
+  }
+
+  
+  unsigned int* ptr_size = &size;
+  unsigned int* ptr_block = &block;
   LARGE_INTEGER frequency;
   LARGE_INTEGER t1, t2;
   double time;
   QueryPerformanceFrequency(&frequency);
 
+  ///////////////////////////////////////////////
+  Keeper queen("kernel.txt");
+
+  Function MulMatrixOpt("mul", "MulMatrixOpt", true);
+  MulMatrixOpt.SetArgument<Type>(A, {size, size}, false);
+  MulMatrixOpt.SetArgument<Type>(B, {size, size}, false);
+  MulMatrixOpt.SetArgument<Type>(C, {size, size}, true);
+  MulMatrixOpt.SetArgument<unsigned int*>(ptr_size, {1}, false);
+  MulMatrixOpt.SetArgument<Type>(a, {block, block}, false);
+  MulMatrixOpt.SetArgument<Type>(b, {block, block}, false);
+  MulMatrixOpt.SetArgument<unsigned int*>(ptr_block, {1}, false);
+
+  queen.SetFunction(MulMatrixOpt);
+
+  queen.Info();
+
+  queen.SetTasks("mul", "GPU", {size, size}, {size, size}, {block, block});
+
   QueryPerformanceCounter(&t1);
 
   queen.Start();
-
+  queen.Wait();
   queen.Read();
-  
+
   QueryPerformanceCounter(&t2);
   time = (t2.QuadPart - t1.QuadPart) / double(frequency.QuadPart);
 
-  printf("The time: %f seconds\n", time);
+  cout << "The time: seconds\n" << time << endl;
+
+  queen.Info("STAT");
   /////////////////////////////////////////////
 
-  cout << endl << endl;
-  
+  /*
   for (int i = 0; i < size; i++) {
     for (int j = 0; j < size; j++) {
-       // std::cout << C[i * size + j] << " ";
+   std::cout << C[i * size + j] << " ";
     }
-    //cout << endl;
+      cout << endl;
   }
-  
-  int n = 0;
+  */
+
+  int error = 0;
   for (unsigned int i = 0; i < size * size; i++) {
-    
-	  if (C[i] != size * 2) {
-      n++;
-
+    if (C[i] != size * 2) {
+      error++;
     }
   }
 
-  cout <<"!!!!!!!!!!!!!!!!!n = "<< n << endl;
+  cout << "ERROR = " << error << endl;
 
-
-
-  for (unsigned int i = 0; i < size; i++) {
-    std::cout << C1[i] << " ";
-  }
-
-  n = 0;
-  for (unsigned int i = 0; i < size; i++) {
-    if (C1[i] != 3) {
-      n++;
-    }
-  }
-  cout << endl;
-  cout << n << endl;
-
-
-   delete[] A;
-   delete[] B;
-   delete[] C;
-
-   delete[] A1;
-   delete[] B1;
-   delete[] C1;
+  delete[] A;
+  delete[] B;
+  delete[] C;
+  delete[] a;
+  delete[] b;
 }
+
+
+
 
 template <typename Type>
 void SumVectors(unsigned int size) {
@@ -165,61 +195,103 @@ void SumVectors(unsigned int size) {
   }
 
   unsigned int* ptr_size = &size;
+  LARGE_INTEGER frequency;
+  LARGE_INTEGER t1, t2;
+  double time;
+  QueryPerformanceFrequency(&frequency);
 
   ///////////////////////////////////////////////
   Keeper queen("kernel.txt");
-  queen.Info();
+ // queen.Info();
   Function SumVectors("sum", "SumVectors");
   SumVectors.SetArgument<Type>(A, {size}, false);
   SumVectors.SetArgument<Type>(B, {size}, false);
   SumVectors.SetArgument<Type>(C, {size}, true);
 
   queen.SetFunction(SumVectors);
-  queen.SetTask("sum", "CPU", {40}, {80});
-  queen.SetTask("sum", "CPU", {10}, {20});
- queen.SetTask("sum", "CPU", {0}, {5});
-  queen.SetTask("sum", "GPU", {5}, {10});
- queen.SetTask("sum", "GPU", {20}, {40});
+  queen.SetTasks("sum", "ALL", {size/10}, {size});
+
+  QueryPerformanceCounter(&t1);
+  queen.Start();
+  queen.Wait();
+  queen.Read();
+  QueryPerformanceCounter(&t2);
+  time = (t2.QuadPart - t1.QuadPart) / double(frequency.QuadPart);
+
+  cout << "The time: seconds\n" << time << endl;
+
+  queen.Info("STAT");
+  /////////////////////////////////////////////
+
+  /*
+  for (unsigned int i = 0; i < size; i++) {
+    std::cout << C[i] << " ";
+  }
+  */
+
+  int error = 0;
+  for (unsigned int i = 0; i < size; i++) {
+    if (C[i] != 3) {
+      error++;
+    }
+  }
+  cout <<"ERROR = "<<error << endl;
+
+  delete[] A;
+  delete[] B;
+  delete[] C;
+}
+
+void MonteCarlo(unsigned int size) {
+  int* A = new int[size];
 
 
+  for (unsigned int i = 0; i < size; i++) {
+    A[i] = 0;
+  }
 
-
+  unsigned int* ptr_size = &size;
 
   LARGE_INTEGER frequency;
   LARGE_INTEGER t1, t2;
   double time;
   QueryPerformanceFrequency(&frequency);
 
+  ///////////////////////////////////////////////
+  Keeper queen("kernel.txt");
+
+  Function MonteCarlo("mc", "MonteCarlo", true);
+  MonteCarlo.SetArgument<int>(A, {size}, true);
+  MonteCarlo.SetArgument<unsigned int*>(ptr_size, {1}, false);
+
+  queen.SetFunction(MonteCarlo);
+
+  queen.Info();
+
+  queen.SetTasks("mc", "GPU", {(size-15000)/10}, {size-15000});
+  queen.SetTask("mc", "CPU", {size - 15000}, {size});
+
   QueryPerformanceCounter(&t1);
 
   queen.Start();
-
+  queen.Wait();
   queen.Read();
 
   QueryPerformanceCounter(&t2);
   time = (t2.QuadPart - t1.QuadPart) / double(frequency.QuadPart);
 
-  printf("The time: %f seconds\n", time);
+  cout << "The time: " << time << "seconds"<< endl;
+
   /////////////////////////////////////////////
 
-  cout << endl << endl;
-
-  for (unsigned int i = 0; i < size; i++) {
-    
-      std::cout << C[i] << " ";
+  double sum = 0;
+  for (unsigned int i = 0; i < size ; i++) {
+    sum += double(A[i])/size;
 
   }
-
-  int n = 0;
-  for (unsigned int i = 0; i < size; i++) {
-    if (C[i] !=   3) {
-      n++;
-    }
-  }
-  cout << endl;
-  cout << n << endl;
+  double fraction_in_circle = sum / size,
+         pi = 3 * sqrt(3) / 2 + fraction_in_circle * 6.0 * (1.0 - sqrt(3) / 2);
+  cout << "PI = " << pi << endl;
 
   delete[] A;
-  delete[] B;
-  delete[] C;
 }
