@@ -335,7 +335,7 @@ void Convolution(unsigned int size, unsigned int radius) {
 
   queen.Info();
 
-  queen.SetTasks("conv", "ALL", {size, size/2}, {size, size});
+  queen.SetTasks("conv", "ALL", {size, size/8}, {size, size});
 
   QueryPerformanceCounter(&t1);
 

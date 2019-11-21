@@ -273,6 +273,7 @@ int Keeper::Start() {
         for (auto& f : h.functions) {
           if (tasks.size() != 0 && f.id == tasks.back().function_id) {
             if (tasks.size() != 0) {
+              h.command.flush();
               if (((tasks.back().parallel_method == "ALL" &&
                     h.event.getInfo<CL_EVENT_COMMAND_EXECUTION_STATUS>() ==
                         CL_COMPLETE) ||
