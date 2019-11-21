@@ -1,26 +1,10 @@
 #include "..\include\QueenBee.hpp"
 
-int Keeper::Launch() {
-  while (enable) {
-    Start();
-  }
-
-  return 0;
-}
-
-int Keeper::Stop() {
-  Wait();
-  enable = false;
-  //ptr_thread->detach();
-  ptr_thread->join();
-
-  return 0;
-}
-
 int Keeper::Wait() {
-  while (tasks.size() != 0) {
+  cout << endl;
+	while (tasks.size() != 0) {
   }
-
+   cout << endl;
   for (auto& g : gardens) {
     for (auto& h : g.hives) {
       h.command.finish();
@@ -38,8 +22,7 @@ Keeper::Keeper(string kernel_file_name) {
   SetGardens();
   SetKernel(kernel_file_name);
   Build();
-  enable = true;
-  //ptr_thread = new thread(&Keeper::Launch, std::ref(*this));
+ 
 }
 
 void Keeper::Info(string mode) {
@@ -284,6 +267,7 @@ int Keeper::Read() {
 int Keeper::Start() {
 
   while (tasks.size() != 0) {
+  tasks.size();
     for (auto& g : gardens) {
       for (auto& h : g.hives) {
         for (auto& f : h.functions) {
@@ -295,7 +279,8 @@ int Keeper::Start() {
                    (h.name == tasks.back().parallel_method &&
                     h.event.getInfo<CL_EVENT_COMMAND_EXECUTION_STATUS>() ==
                         CL_COMPLETE))) {
-                cout << "start:" + h.name << endl;              
+                cout << "start:" + h.name << endl ;              
+
                 int status = h.command.enqueueNDRangeKernel(
                     f.kernel, GetRange(tasks.back().offsets),
                     GetGlobalRange(tasks.back().globals, tasks.back().offsets),
@@ -306,7 +291,12 @@ int Keeper::Start() {
                 break;
               }
             }
-          }
+          } else {
+            if (tasks.size()!= 0)
+            tasks.pop_back();
+		  }
+
+
         }
       }
     }

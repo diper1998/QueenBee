@@ -13,11 +13,14 @@ template <typename Type>
 void SumVectors(unsigned int size);
 
 void MonteCarlo(unsigned int size);
+void Convolution(unsigned int size, unsigned int radius);
+
 
 int main(void) {
- // MulMatrixOpt<float>(10000);
- // SumVectors<float>(10000000);
- MonteCarlo(1000000);
+// MulMatrixOpt<float>(1600);
+// SumVectors<float>(10000000);
+// MonteCarlo(10000);
+  Convolution(8000, 50);
   return 0;
 }
 
@@ -63,7 +66,7 @@ void MulMatrix(unsigned int size) {
  queen.Start();
  queen.Wait();
  queen.Read();
- queen.Stop();
+
  QueryPerformanceCounter(&t2);
  time = (t2.QuadPart - t1.QuadPart) / double(frequency.QuadPart);
 
@@ -138,7 +141,7 @@ void MulMatrixOpt(unsigned int size) {
 
   queen.Info();
 
-  queen.SetTasks("mul", "GPU", {size, size}, {size, size}, {block, block});
+  queen.SetTasks("mul", "GPU", {size/10, size/10}, {size, size}, {block, block});
 
   QueryPerformanceCounter(&t1);
 
@@ -209,7 +212,7 @@ void SumVectors(unsigned int size) {
   SumVectors.SetArgument<Type>(C, {size}, true);
 
   queen.SetFunction(SumVectors);
-  queen.SetTasks("sum", "ALL", {size/10}, {size});
+  queen.SetTasks("sum", "CPU", {size}, {size});
 
   QueryPerformanceCounter(&t1);
   queen.Start();
@@ -268,12 +271,11 @@ void MonteCarlo(unsigned int size) {
 
   queen.Info();
 
-  queen.SetTasks("mc", "GPU", {(size-15000)/10}, {size-15000});
-  queen.SetTask("mc", "CPU", {size - 15000}, {size});
+  queen.SetTasks("mc", "CPU", {size}, {size});
 
   QueryPerformanceCounter(&t1);
 
-  queen.Start();
+  //queen.Start();
   queen.Wait();
   queen.Read();
 
@@ -294,4 +296,73 @@ void MonteCarlo(unsigned int size) {
   cout << "PI = " << pi << endl;
 
   delete[] A;
+}
+
+void Convolution(unsigned int size, unsigned int radius) {
+
+  float* A = new float[size * size];
+  float* B = new float[size * size];
+  float* kern = new float[(2 * radius + 1) * (2 * radius + 1)];
+
+  for (unsigned int i = 0; i < size * size; i++) {
+    A[i] = 1 ;
+    B[i] = 0;    
+  }
+
+  for (unsigned int i = 0; i < (2 * radius + 1) * (2 * radius + 1); i++) {
+    kern[i] = 1.0/9;
+  }
+
+  unsigned int* ptr_size = &size;
+  unsigned int* ptr_radius = &radius;
+
+  LARGE_INTEGER frequency;
+  LARGE_INTEGER t1, t2;
+  double time;
+  QueryPerformanceFrequency(&frequency);
+
+  ///////////////////////////////////////////////
+  Keeper queen("kernel.txt");
+
+  Function Convolution("conv", "Convolution", false);
+  Convolution.SetArgument<float>(A, {size, size}, false);
+  Convolution.SetArgument<float>(B, {size, size}, true);
+  Convolution.SetArgument<unsigned int>(ptr_size, {1}, false);
+  Convolution.SetArgument<float>(kern, {2*radius+1, 2*radius+1}, false);
+  Convolution.SetArgument<unsigned int>(ptr_radius, {1}, false);
+
+  queen.SetFunction(Convolution);
+
+  queen.Info();
+
+  queen.SetTasks("conv", "ALL", {size, size/2}, {size, size});
+
+  QueryPerformanceCounter(&t1);
+
+  queen.Start();
+  queen.Wait();
+  queen.Read();
+  QueryPerformanceCounter(&t2);
+  time = (t2.QuadPart - t1.QuadPart) / double(frequency.QuadPart);
+
+  cout << "The time: seconds\n" << time << endl;
+
+  /////////////////////////////////////////////
+
+  
+  for (int i = 0; i < size; i++) {
+    for (int j = 0; j < size; j++) {
+   //std::cout << B[i * size + j] << " ";
+    }
+    //  cout << endl;
+  }
+  
+
+  
+
+  delete[] A;
+  delete[] B;
+  delete[] kern; 
+ 
+
 }
