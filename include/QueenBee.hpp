@@ -93,6 +93,7 @@ class Hive {
   vector<Function> functions;
   Event event;
   vector<Task> completed;
+
  public:
   Hive(Device& dev, CommandQueue& comm, Context& cont, Program& prog,
        string id_name, cl_device_type device_type);
@@ -126,8 +127,6 @@ class Keeper {
   NDRange GetGlobalRange(vector<unsigned int> global_range,
                          vector<unsigned int> offset);
 
-  int Launch();
-
  public:
   Keeper(string kernel_file_name);
   int Wait();
@@ -140,12 +139,14 @@ class Keeper {
                vector<unsigned int> steps, vector<unsigned int> global_range,
                vector<unsigned int> local_range = {});
   int Start();
-  int Execute(Hive& hive, Function& func, Task task);
+
+  int Test(string function_id, vector<unsigned int> global_range,
+           vector<unsigned int> local_range = {});
 
   int Read();
 
   template <typename Type>
-  int Read(void (*pt2Func)(Type* x, Type* y), string function) {
+  int Read(void (*pt2Func)(Type* x, Type* y)) {
     vector<Type*> results;
     Type* pointer;
     for (auto& g : gardens) {
@@ -180,23 +181,23 @@ class Keeper {
       case 1:
 
         if (arg.dimension.size() == 1 && arg.dimension[0] == 1) {
-          hive.command.enqueueReadBuffer(arg.buffer, CL_TRUE, 0, sizeof(Type),
+          hive.command.enqueueReadBuffer(arg.buffer, CL_FALSE, 0, sizeof(Type),
                                          static_cast<Type*>(pointer));
 
         } else {
           hive.command.enqueueReadBuffer(
-              arg.buffer, CL_TRUE, task.offsets[0] * sizeof(Type),
+              arg.buffer, CL_FALSE, task.offsets[0] * sizeof(Type),
               (task.globals[0] - task.offsets[0]) * sizeof(Type),
               static_cast<Type*>(pointer) + task.offsets[0]);
         }
         break;
 
-      case 2:       
+      case 2:
 
         if (arg.inverse) {
           for (unsigned int i = task.offsets[1]; i < task.globals[1]; i++) {
             hive.command.enqueueReadBuffer(
-                arg.buffer, CL_TRUE,
+                arg.buffer, CL_FALSE,
                 (i * arg.dimension[1] + task.offsets[0]) * sizeof(Type),
                 (task.globals[0] - task.offsets[0]) * sizeof(Type),
                 static_cast<Type*>(pointer) + task.offsets[0] +
@@ -207,7 +208,7 @@ class Keeper {
         if (!arg.inverse) {
           for (unsigned int i = task.offsets[0]; i < task.globals[0]; i++) {
             hive.command.enqueueReadBuffer(
-                arg.buffer, CL_TRUE,
+                arg.buffer, CL_FALSE,
                 (i * arg.dimension[0] + task.offsets[1]) * sizeof(Type),
                 (task.globals[1] - task.offsets[1]) * sizeof(Type),
                 static_cast<Type*>(pointer) + task.offsets[1] +
@@ -223,6 +224,4 @@ class Keeper {
 
     return 0;
   };
-
-
 };

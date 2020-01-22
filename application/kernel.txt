@@ -103,8 +103,8 @@ kernel void Convolution(global float* in, global float* out,
 			constant int* ptr_size, global float* kern, 
 				constant int* ptr_radius){
 
-int i = get_global_id(0);//y
-int j = get_global_id(1);//x
+int i = get_global_id(1);//y
+int j = get_global_id(0);//x
 int size = *ptr_size;
 int radius = *ptr_radius;
 

@@ -2,9 +2,9 @@
 
 int Keeper::Wait() {
   cout << endl;
-	while (tasks.size() != 0) {
+  while (tasks.size() != 0) {
   }
-   cout << endl;
+  cout << endl;
   for (auto& g : gardens) {
     for (auto& h : g.hives) {
       h.command.finish();
@@ -22,7 +22,6 @@ Keeper::Keeper(string kernel_file_name) {
   SetGardens();
   SetKernel(kernel_file_name);
   Build();
- 
 }
 
 void Keeper::Info(string mode) {
@@ -56,8 +55,7 @@ void Keeper::Info(string mode) {
     }
   }
 
- cout << endl;
-
+  cout << endl;
 }
 
 int Keeper::SetGardens() {  // all platforms with devices
@@ -168,7 +166,6 @@ int Keeper::SetFunction(Function& function) {
     }
   }
 
-
   return 1;
 }
 
@@ -176,6 +173,9 @@ int Keeper::SetTask(string function_id, string parallel_method,
                     vector<unsigned int> offset,
                     vector<unsigned int> global_range,
                     vector<unsigned int> local_range) {
+
+
+
   Task tmp(function_id, parallel_method, offset, global_range, local_range);
   tasks.push_back(tmp);
 
@@ -188,6 +188,15 @@ int Keeper::SetTasks(string function_id, string parallel_method,
                      vector<unsigned int> local_range) {
   switch (global_range.size()) {
     case 1:
+      while (global_range[0] % steps[0] != 0) {
+        steps[0] -= 1;
+      }
+
+	    if (local_range.size() == 1)
+        while (steps[0] % local_range[0] != 0) {
+          local_range[0] -= 1;
+        }
+
       for (unsigned int i = 0; i < global_range[0] / steps[0]; i++) {
         unsigned int offset_i = i * steps[0];
         unsigned int global_i = steps[0] + i * steps[0];
@@ -196,8 +205,29 @@ int Keeper::SetTasks(string function_id, string parallel_method,
         tasks.push_back(tmp);
       }
 
+
       break;
     case 2:
+
+		 while (global_range[0] % steps[0] != 0) {
+        steps[0] -= 1;
+      }
+
+		  while (global_range[1] % steps[1] != 0) {
+        steps[1] -= 1;
+      }
+
+		  if (local_range.size() == 1)
+		  while (steps[0] % local_range[0] != 0) {
+        local_range[0] -= 1;
+		  }
+
+		  if (local_range.size() == 2)
+		   while (steps[1] % local_range[1] != 0) {
+                    local_range[1] -= 1;
+                  }
+
+
       for (unsigned int i = 0; i < global_range[0] / steps[0]; i++) {
         for (unsigned int j = 0; j < global_range[1] / steps[1]; j++) {
           unsigned int offset_i = i * steps[0];
@@ -213,22 +243,6 @@ int Keeper::SetTasks(string function_id, string parallel_method,
       break;
     default:
       break;
-  }
-
-  return 0;
-}
-
-int Keeper::Execute(Hive& hive, Function& func, Task task) {
-  Event* eve = new Event;
-  int status = hive.command.enqueueNDRangeKernel(
-      func.kernel, GetRange(task.offsets),
-      GetGlobalRange(task.globals, task.offsets), GetRange(task.locals), NULL,
-      eve);
-
-  hive.command.finish();
-
-  if (status != CL_SUCCESS) {
-    cout << "Error";
   }
 
   return 0;
@@ -250,7 +264,6 @@ int Keeper::Read() {
                 if (a.type == "short") Read<short>(hive, a, task, a.pointer);
                 if (a.type == "bool") Read<bool>(hive, a, task, a.pointer);
                 if (a.type == "char") Read<char>(hive, a, task, a.pointer);
-          
               }
             }
           }
@@ -259,15 +272,20 @@ int Keeper::Read() {
     }
   }
 
-
+  Wait();
 
   return 1;
 }
 
 int Keeper::Start() {
+  for (auto& g : gardens) {
+    for (auto& h : g.hives) {
+      h.completed.clear();
+    }
+  }
 
   while (tasks.size() != 0) {
-  tasks.size();
+    tasks.size();
     for (auto& g : gardens) {
       for (auto& h : g.hives) {
         for (auto& f : h.functions) {
@@ -280,31 +298,182 @@ int Keeper::Start() {
                    (h.name == tasks.back().parallel_method &&
                     h.event.getInfo<CL_EVENT_COMMAND_EXECUTION_STATUS>() ==
                         CL_COMPLETE))) {
-                cout << "start:" + h.name << endl ;              
-
                 int status = h.command.enqueueNDRangeKernel(
                     f.kernel, GetRange(tasks.back().offsets),
                     GetGlobalRange(tasks.back().globals, tasks.back().offsets),
                     GetRange(tasks.back().locals), NULL, &h.event);
                 h.completed.push_back(tasks.back());
-                if (tasks.size()!= 0)
-                tasks.pop_back();
+                if (tasks.size() != 0) tasks.pop_back();
                 break;
               }
             }
           } else {
-            if (tasks.size()!= 0)
-            tasks.pop_back();
-		  }
-
-
+            if (tasks.size() != 0) tasks.pop_back();
+          }
         }
       }
     }
   }
 
-
   return 1;
+}
+
+int Keeper::Test(string function_id, vector<unsigned int> global_range,
+                 vector<unsigned int> local_range) {
+  LARGE_INTEGER frequency;
+  LARGE_INTEGER t1, t2;
+  double time;
+  QueryPerformanceFrequency(&frequency);
+
+  if (global_range.size() == 2) {
+    SetTask(function_id, "CPU", {0, 0}, global_range, local_range);
+
+    QueryPerformanceCounter(&t1);
+    Start();
+    Wait();
+    Read();
+
+    QueryPerformanceCounter(&t2);
+    time = (t2.QuadPart - t1.QuadPart) / double(frequency.QuadPart);
+    cout << "100% CPU 0% GPU: " << time << endl;
+
+    //=====
+    SetTask(function_id, "GPU", {0, 0}, global_range, local_range);
+
+    QueryPerformanceCounter(&t1);
+    Start();
+    Wait();
+    Read();
+
+    QueryPerformanceCounter(&t2);
+    time = (t2.QuadPart - t1.QuadPart) / double(frequency.QuadPart);
+    cout << "0% CPU 100% GPU: " << time << endl;
+    //========
+
+    cout << endl;
+    for (int i = 10; i <= 50; i += 10) {
+      SetTasks(function_id, "ALL",
+               {global_range[0] * i / 100, global_range[1] * i / 100},
+               global_range, local_range);
+
+      QueryPerformanceCounter(&t1);
+      Start();
+      Wait();
+      Read();
+
+      QueryPerformanceCounter(&t2);
+      time = (t2.QuadPart - t1.QuadPart) / double(frequency.QuadPart);
+      cout << "ALL " << i << "% : " << time << endl;
+      Info("STAT");
+    }
+
+    cout << endl;
+
+    cout << "X:" << endl;
+    for (unsigned int i = 10; i < 100; i += 10) {
+      SetTask(function_id, "GPU", {0, 0},
+              {global_range[0] * i / 100, global_range[1]}, local_range);
+
+      SetTask(function_id, "CPU", {global_range[0] * i / 100, 0},
+              {global_range[0], global_range[1]}, local_range);
+
+      QueryPerformanceCounter(&t1);
+      Start();
+      Wait();
+      Read();
+
+      QueryPerformanceCounter(&t2);
+      time = (t2.QuadPart - t1.QuadPart) / double(frequency.QuadPart);
+      cout << 100 - i << "% CPU " << i << "% GPU: " << time << endl;
+    }
+
+    cout << endl;
+
+    cout << "Y:" << endl;
+    for (unsigned int i = 10; i < 100; i += 10) {
+      SetTask(function_id, "GPU", {0, 0},
+              {global_range[1], global_range[0] * i / 100}, local_range);
+
+      SetTask(function_id, "CPU", {0, global_range[0] * i / 100},
+              {global_range[0], global_range[1]}, local_range);
+
+      QueryPerformanceCounter(&t1);
+      Start();
+      Wait();
+      Read();
+
+      QueryPerformanceCounter(&t2);
+      time = (t2.QuadPart - t1.QuadPart) / double(frequency.QuadPart);
+      cout << 100 - i << "% CPU " << i << "% GPU: " << time << endl;
+    }
+  }
+  //===========================================================
+  if (global_range.size() == 1) {
+    SetTask(function_id, "CPU", {0}, global_range, local_range);
+
+    QueryPerformanceCounter(&t1);
+    Start();
+    Wait();
+    Read();
+
+    QueryPerformanceCounter(&t2);
+    time = (t2.QuadPart - t1.QuadPart) / double(frequency.QuadPart);
+    cout << "100% CPU 0% GPU: " << time << endl;
+
+    //=====
+    SetTask(function_id, "GPU", {0}, global_range, local_range);
+
+    QueryPerformanceCounter(&t1);
+    Start();
+    Wait();
+    Read();
+
+    QueryPerformanceCounter(&t2);
+    time = (t2.QuadPart - t1.QuadPart) / double(frequency.QuadPart);
+    cout << "0% CPU 100% GPU: " << time << endl;
+    //========
+
+    cout << endl;
+    for (int i = 10; i <= 50; i += 10) {
+      SetTasks(function_id, "ALL",
+               {global_range[0] * i / 100},
+               global_range, local_range);
+
+      QueryPerformanceCounter(&t1);
+      Start();
+      Wait();
+      Read();
+
+      QueryPerformanceCounter(&t2);
+      time = (t2.QuadPart - t1.QuadPart) / double(frequency.QuadPart);
+      cout << "ALL " << i << "% : " << time << endl;
+      Info("STAT");
+    }
+
+    cout << endl;
+
+    cout << "X:" << endl;
+    for (unsigned int i = 10; i < 100; i += 10) {
+      SetTask(function_id, "GPU", {0}, {global_range[0] * i / 100},
+              local_range);
+
+      SetTask(function_id, "CPU", {global_range[0] * i / 100},
+              {global_range[0]}, local_range);
+
+      QueryPerformanceCounter(&t1);
+      Start();
+      Wait();
+      Read();
+
+      QueryPerformanceCounter(&t2);
+      time = (t2.QuadPart - t1.QuadPart) / double(frequency.QuadPart);
+      cout << 100 - i << "% CPU " << i << "% GPU: " << time << endl;
+    }
+
+    cout << endl;
+  }
+
+  return 0;
 }
 
 Garden::Garden() {}
@@ -348,7 +517,6 @@ Hive::Hive(Device& dev, CommandQueue& comm, Context& cont, Program& prog,
   cl::UserEvent tmp(cont);
   tmp.setStatus(CL_COMPLETE);
   event = tmp;
-  //  events.push_back(tmp);
 }
 
 NDRange Keeper::GetGlobalRange(vector<unsigned int> global_range,
