@@ -16,12 +16,19 @@ void MonteCarlo(unsigned int size);
 void Convolution(unsigned int size, unsigned int radius, string mode,
                  int peace);
 
+
+void ReadFunct(float* out, float*in) {
+  *out = *out + *in;
+  cout << out;
+}
+
+
 int main(void) {
-  MulMatrixOpt<float>(400);
- // MulMatrix<float>(2000);
+  MulMatrixOpt<float>(4800);
+ // MulMatrix<float>(12800);
  //   SumVectors<float>(2000);
- // MonteCarlo(10000);
-//	Convolution(2000, 31, "ALL", 10);
+ // MonteCarlo(100000);
+//	Convolution(6400, 100, "ALL", 10);
   
   return 0;
 }
@@ -55,42 +62,43 @@ void MulMatrix(unsigned int size) {
   MulMatrix.SetArgument<unsigned int>(ptr_size, {1}, false);
 
   queen.SetFunction(MulMatrix);
-  queen.Test("mul", {size, size});
+  //queen.Test("mul", {size, size});
 
-  // queen.Info();
+   queen.Info("DEV");
 
- // queen.SetTasks("mul", "GPU", {size / 10, size / 10}, {size, size});
- //
- // QueryPerformanceCounter(&t1);
- //
- // queen.Start();
- // queen.Wait();
- // queen.Read();
- //
- // QueryPerformanceCounter(&t2);
- // time = (t2.QuadPart - t1.QuadPart) / double(frequency.QuadPart);
- //
- // cout << "The time: seconds\n" << time << endl;
- //
- // /////////////////////////////////////////////
- //
- // /*
- // for (int i = 0; i < size; i++) {
- //   for (int j = 0; j < size; j++) {
- //  std::cout << C[i * size + j] << " ";
- //   }
- //     cout << endl;
- // }
- // */
- //
- // int error = 0;
- // for (unsigned int i = 0; i < size * size; i++) {
- //   if (C[i] != size * 2) {
- //     error++;
- //   }
- // }
- //
- // cout << "ERROR = " << error << endl;
+  queen.SetTasks("mul", "ALL", {size/10 , size/10}, {size, size});
+ // queen.SetTask("mul", "ALL", {0, 0}, {size, size});
+    QueryPerformanceCounter(&t1);
+ 
+  queen.Start();
+//  queen.Wait();
+//  void (*pt2Func)(Type*, Type*) = NULL;
+//  pt2Func = &ReadFunct;
+  //queen.Read<Type>((*pt2Func));
+
+ 
+  queen.Info("STAT");
+  queen.Info("TIME");
+
+  /////////////////////////////////////////////
+ 
+  
+  for (int i = 0; i < size; i++) {
+    for (int j = 0; j < size; j++) {
+  // std::cout << C[i * size + j] << " ";
+    }
+    //  cout << endl;
+  }
+  
+ 
+  int error = 0;
+  for (unsigned int i = 0; i < size * size; i++) {
+    if (C[i] != size * 2) {
+      error++;
+    }
+  }
+ 
+  cout << "ERROR = " << error << endl;
 
   delete[] A;
   delete[] B;
@@ -102,7 +110,7 @@ void MulMatrixOpt(unsigned int size) {
   Type* A = new Type[size * size];
   Type* B = new Type[size * size];
   Type* C = new Type[size * size];
-  unsigned int block = 10;
+  unsigned int block = 16;
 
   Type* a = NULL;
   Type* b = NULL;
@@ -271,17 +279,23 @@ void MonteCarlo(unsigned int size) {
 
   queen.SetFunction(MonteCarlo);
 
-  queen.Info("STAT");
+//  queen.Info("STAT");
 
   queen.Test("mc", {size});
 
- // queen.SetTasks("mc", "ALL", {size / 10}, {size});
+ //  queen.SetTasks("mc", "ALL", {size / 10}, {size});
  //
  // QueryPerformanceCounter(&t1);
  //
- // queen.Start();
+ //  queen.Start();
  // queen.Wait();
-  queen.Read();
+ //  void (*pt2Func)(float*, float*) = NULL;
+
+  // pt2Func = &ReadFunct;
+ //  int sum = 0;
+
+//  queen.Read(*pt2Func);
+
  //
  // QueryPerformanceCounter(&t2);
  // time = (t2.QuadPart - t1.QuadPart) / double(frequency.QuadPart);
@@ -293,11 +307,14 @@ void MonteCarlo(unsigned int size) {
  //
   double sum = 0;
   for (unsigned int i = 0; i < size; i++) {
-    sum += double(A[i]) / size;
+   sum += double(A[i]) / size;
   }
   double fraction_in_circle = sum / size,
-         pi = 3 * sqrt(3) / 2 + fraction_in_circle * 6.0 * (1.0 - sqrt(3) / 2);
+        pi = 3 * sqrt(3) / 2 + fraction_in_circle * 6.0 * (1.0 - sqrt(3) / 2);
   cout << "PI = " << pi << endl;
+
+
+
 
   delete[] A;
 }

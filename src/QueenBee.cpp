@@ -1,16 +1,13 @@
 #include "..\include\QueenBee.hpp"
 
 int Keeper::Wait() {
-  cout << endl;
   while (tasks.size() != 0) {
   }
-  cout << endl;
   for (auto& g : gardens) {
     for (auto& h : g.hives) {
       h.command.finish();
       while (h.event.getInfo<CL_EVENT_COMMAND_EXECUTION_STATUS>() !=
              CL_COMPLETE) {
-        cout << h.name + ":busy" << endl;
       }
     }
   }
@@ -25,8 +22,6 @@ Keeper::Keeper(string kernel_file_name) {
 }
 
 void Keeper::Info(string mode) {
-  cout << endl;
-
   if (mode == "ALL" || mode == "DEV") {
     for (const auto& g : gardens) {
       cout << g.platform.getInfo<CL_PLATFORM_NAME>() << endl;
@@ -53,6 +48,33 @@ void Keeper::Info(string mode) {
         cout << h.name + ":" << h.completed.size() << endl;
       }
     }
+  }
+
+  if (mode == "ALL" || mode == "TIME") {
+    LARGE_INTEGER frequency;
+    int i = 0;
+    QueryPerformanceFrequency(&frequency);
+    for (auto& g : gardens) {
+      for (auto& h : g.hives) {
+        cout << h.name << endl;
+        h.work_time = 0;
+        for (auto& t : h.time) {
+          cout << i << ": " << t << endl;
+          i++;
+          h.work_time += t;
+        }
+      }
+    }
+
+    for (auto& g : gardens) {
+      for (auto& h : g.hives) {
+        cout << h.name << ": " << h.work_time << endl;
+      }
+    }
+
+    cout << "ALL time: " << all_time << endl;
+    cout << "WORK time: " << work_time << endl;
+    cout << "READ time: " << read_time << endl;
   }
 
   cout << endl;
@@ -124,7 +146,7 @@ int Keeper::Build() {
                 d.getInfo<CL_DEVICE_TYPE>());
       g.hives.push_back(hive);
 
-      if (!g.hives.back().program.build(g.hives.back().device) != CL_SUCCESS) {
+      if (g.hives.back().program.build(g.hives.back().device) != CL_SUCCESS) {
         cout << g.hives.back().program.getBuildInfo<CL_PROGRAM_BUILD_LOG>(d)
              << endl;
       }
@@ -173,9 +195,6 @@ int Keeper::SetTask(string function_id, string parallel_method,
                     vector<unsigned int> offset,
                     vector<unsigned int> global_range,
                     vector<unsigned int> local_range) {
-
-
-
   Task tmp(function_id, parallel_method, offset, global_range, local_range);
   tasks.push_back(tmp);
 
@@ -192,7 +211,7 @@ int Keeper::SetTasks(string function_id, string parallel_method,
         steps[0] -= 1;
       }
 
-	    if (local_range.size() == 1)
+      if (local_range.size() == 1)
         while (steps[0] % local_range[0] != 0) {
           local_range[0] -= 1;
         }
@@ -205,28 +224,26 @@ int Keeper::SetTasks(string function_id, string parallel_method,
         tasks.push_back(tmp);
       }
 
-
       break;
     case 2:
 
-		 while (global_range[0] % steps[0] != 0) {
+      while (global_range[0] % steps[0] != 0) {
         steps[0] -= 1;
       }
 
-		  while (global_range[1] % steps[1] != 0) {
+      while (global_range[1] % steps[1] != 0) {
         steps[1] -= 1;
       }
 
-		  if (local_range.size() == 1)
-		  while (steps[0] % local_range[0] != 0) {
-        local_range[0] -= 1;
-		  }
+      if (local_range.size() == 1)
+        while (steps[0] % local_range[0] != 0) {
+          local_range[0] -= 1;
+        }
 
-		  if (local_range.size() == 2)
-		   while (steps[1] % local_range[1] != 0) {
-                    local_range[1] -= 1;
-                  }
-
+      if (local_range.size() == 2)
+        while (steps[1] % local_range[1] != 0) {
+          local_range[1] -= 1;
+        }
 
       for (unsigned int i = 0; i < global_range[0] / steps[0]; i++) {
         for (unsigned int j = 0; j < global_range[1] / steps[1]; j++) {
@@ -278,14 +295,28 @@ int Keeper::Read() {
 }
 
 int Keeper::Start() {
+  LARGE_INTEGER wt1;
+  LARGE_INTEGER wt2;
+
+  LARGE_INTEGER at1;
+  LARGE_INTEGER at2;
+
+  QueryPerformanceCounter(&wt1);
+  QueryPerformanceCounter(&at1);
+
   for (auto& g : gardens) {
     for (auto& h : g.hives) {
       h.completed.clear();
+      h.time.clear();
+      h.done = false;
     }
   }
+  LARGE_INTEGER frequency;
+  LARGE_INTEGER t2;
+  LARGE_INTEGER t1;
+  QueryPerformanceFrequency(&frequency);
 
   while (tasks.size() != 0) {
-    tasks.size();
     for (auto& g : gardens) {
       for (auto& h : g.hives) {
         for (auto& f : h.functions) {
@@ -298,181 +329,187 @@ int Keeper::Start() {
                    (h.name == tasks.back().parallel_method &&
                     h.event.getInfo<CL_EVENT_COMMAND_EXECUTION_STATUS>() ==
                         CL_COMPLETE))) {
+                if (h.time.size() != 0) {
+                  QueryPerformanceCounter(&t2);
+                  h.time.back() =
+                      t2.QuadPart / double(frequency.QuadPart) - h.time.back();
+                }
+
+                QueryPerformanceCounter(&t1);
+                h.time.push_back(t1.QuadPart / double(frequency.QuadPart));
                 int status = h.command.enqueueNDRangeKernel(
                     f.kernel, GetRange(tasks.back().offsets),
                     GetGlobalRange(tasks.back().globals, tasks.back().offsets),
                     GetRange(tasks.back().locals), NULL, &h.event);
+
                 h.completed.push_back(tasks.back());
                 if (tasks.size() != 0) tasks.pop_back();
                 break;
               }
             }
           } else {
-            if (tasks.size() != 0) tasks.pop_back();
+            // if (tasks.size() != 0) tasks.pop_back();
           }
         }
       }
     }
   }
+  int index = 0;
+  int count = 0;
+  for (auto& g : gardens) {
+    index += g.hives.size();
+    count += g.hives.size();
+  }
+  while (index != 0) {
+    for (auto& g : gardens) {
+      for (auto& h : g.hives) {
+        h.command.flush();
+        if (h.event.getInfo<CL_EVENT_COMMAND_EXECUTION_STATUS>() ==
+                CL_COMPLETE &&
+            h.done != true) {
+          index--;
+          h.done = true;
+          if (h.time.size() != 0) {
+            QueryPerformanceCounter(&t2);
+            h.time.back() =
+                t2.QuadPart / double(frequency.QuadPart) - h.time.back();
+          }
+        }
+      }
+    }
+  }
+  QueryPerformanceCounter(&wt2);
+
+  LARGE_INTEGER rt1;
+  LARGE_INTEGER rt2;
+
+  QueryPerformanceCounter(&rt1);
+  Read();
+  QueryPerformanceCounter(&at2);
+  QueryPerformanceCounter(&rt2);
+
+  work_time = (wt2.QuadPart - wt1.QuadPart) / double(frequency.QuadPart);
+
+  read_time = (rt2.QuadPart - rt1.QuadPart) / double(frequency.QuadPart);
+
+  all_time = (at2.QuadPart - at1.QuadPart) / double(frequency.QuadPart);
 
   return 1;
 }
 
 int Keeper::Test(string function_id, vector<unsigned int> global_range,
                  vector<unsigned int> local_range) {
-  LARGE_INTEGER frequency;
-  LARGE_INTEGER t1, t2;
-  double time;
-  QueryPerformanceFrequency(&frequency);
+  std::ofstream perfomance;
+  perfomance.open("performance.txt");
 
   if (global_range.size() == 2) {
+    cout << "100% CPU 0% GPU: " << endl;
     SetTask(function_id, "CPU", {0, 0}, global_range, local_range);
-
-    QueryPerformanceCounter(&t1);
     Start();
-    Wait();
-    Read();
+    Info("TIME");
 
-    QueryPerformanceCounter(&t2);
-    time = (t2.QuadPart - t1.QuadPart) / double(frequency.QuadPart);
-    cout << "100% CPU 0% GPU: " << time << endl;
+    perfomance << "0\t" << all_time << "\t" << work_time << endl;
+    
 
-    //=====
-    SetTask(function_id, "GPU", {0, 0}, global_range, local_range);
-
-    QueryPerformanceCounter(&t1);
-    Start();
-    Wait();
-    Read();
-
-    QueryPerformanceCounter(&t2);
-    time = (t2.QuadPart - t1.QuadPart) / double(frequency.QuadPart);
-    cout << "0% CPU 100% GPU: " << time << endl;
+   
     //========
 
     cout << endl;
     for (int i = 10; i <= 50; i += 10) {
+      cout << "ALL " << i << "% : " << endl;
       SetTasks(function_id, "ALL",
                {global_range[0] * i / 100, global_range[1] * i / 100},
                global_range, local_range);
 
-      QueryPerformanceCounter(&t1);
       Start();
-      Wait();
-      Read();
-
-      QueryPerformanceCounter(&t2);
-      time = (t2.QuadPart - t1.QuadPart) / double(frequency.QuadPart);
-      cout << "ALL " << i << "% : " << time << endl;
-      Info("STAT");
+      Info("TIME");
     }
 
     cout << endl;
 
     cout << "X:" << endl;
-    for (unsigned int i = 10; i < 100; i += 10) {
+    for (unsigned int i = 1; i < 100; i += 1) {
+      cout << 100 - i << "% CPU " << i << "% GPU: " << endl;
       SetTask(function_id, "GPU", {0, 0},
               {global_range[0] * i / 100, global_range[1]}, local_range);
 
       SetTask(function_id, "CPU", {global_range[0] * i / 100, 0},
               {global_range[0], global_range[1]}, local_range);
 
-      QueryPerformanceCounter(&t1);
       Start();
-      Wait();
-      Read();
-
-      QueryPerformanceCounter(&t2);
-      time = (t2.QuadPart - t1.QuadPart) / double(frequency.QuadPart);
-      cout << 100 - i << "% CPU " << i << "% GPU: " << time << endl;
+      Info("TIME");
+      perfomance << i << "\t" << all_time << "\t" << work_time << endl;
     }
 
-    cout << endl;
 
+	 //=====
+    cout << "0% CPU 100% GPU: " << endl;
+    SetTask(function_id, "GPU", {0, 0}, global_range, local_range);
+    Start();
+    Info("TIME");
+    
+	perfomance << "100\t" << all_time << "\t" << work_time << endl;
+   
+
+	cout << endl;
+        /* 
     cout << "Y:" << endl;
-    for (unsigned int i = 10; i < 100; i += 10) {
+    for (unsigned int i = 1; i < 100; i += 1) {
+      cout << 100 - i << "% CPU " << i << "% GPU: " << endl;
+
       SetTask(function_id, "GPU", {0, 0},
               {global_range[1], global_range[0] * i / 100}, local_range);
 
       SetTask(function_id, "CPU", {0, global_range[0] * i / 100},
               {global_range[0], global_range[1]}, local_range);
 
-      QueryPerformanceCounter(&t1);
       Start();
-      Wait();
-      Read();
-
-      QueryPerformanceCounter(&t2);
-      time = (t2.QuadPart - t1.QuadPart) / double(frequency.QuadPart);
-      cout << 100 - i << "% CPU " << i << "% GPU: " << time << endl;
+      Info("TIME");
     }
+        */
   }
   //===========================================================
   if (global_range.size() == 1) {
+    cout << "100% CPU 0% GPU: " << endl;
     SetTask(function_id, "CPU", {0}, global_range, local_range);
-
-    QueryPerformanceCounter(&t1);
     Start();
-    Wait();
-    Read();
-
-    QueryPerformanceCounter(&t2);
-    time = (t2.QuadPart - t1.QuadPart) / double(frequency.QuadPart);
-    cout << "100% CPU 0% GPU: " << time << endl;
-
+    Info("TIME");
     //=====
+
+    cout << "0% CPU 100% GPU: " << endl;
     SetTask(function_id, "GPU", {0}, global_range, local_range);
-
-    QueryPerformanceCounter(&t1);
     Start();
-    Wait();
-    Read();
-
-    QueryPerformanceCounter(&t2);
-    time = (t2.QuadPart - t1.QuadPart) / double(frequency.QuadPart);
-    cout << "0% CPU 100% GPU: " << time << endl;
+    Info("TIME");
     //========
 
     cout << endl;
     for (int i = 10; i <= 50; i += 10) {
-      SetTasks(function_id, "ALL",
-               {global_range[0] * i / 100},
-               global_range, local_range);
+      cout << "ALL " << i << "% : " << endl;
 
-      QueryPerformanceCounter(&t1);
+      SetTasks(function_id, "ALL", {global_range[0] * i / 100}, global_range,
+               local_range);
       Start();
-      Wait();
-      Read();
-
-      QueryPerformanceCounter(&t2);
-      time = (t2.QuadPart - t1.QuadPart) / double(frequency.QuadPart);
-      cout << "ALL " << i << "% : " << time << endl;
-      Info("STAT");
+      Info("TIME");
     }
 
     cout << endl;
-
+      
     cout << "X:" << endl;
-    for (unsigned int i = 10; i < 100; i += 10) {
+    for (unsigned int i = 1; i < 100; i += 1) {
+      cout << 100 - i << "% CPU " << i << "% GPU: " << endl;
       SetTask(function_id, "GPU", {0}, {global_range[0] * i / 100},
               local_range);
 
       SetTask(function_id, "CPU", {global_range[0] * i / 100},
               {global_range[0]}, local_range);
 
-      QueryPerformanceCounter(&t1);
       Start();
-      Wait();
-      Read();
-
-      QueryPerformanceCounter(&t2);
-      time = (t2.QuadPart - t1.QuadPart) / double(frequency.QuadPart);
-      cout << 100 - i << "% CPU " << i << "% GPU: " << time << endl;
+      Info("TIME");
     }
 
     cout << endl;
   }
-
+  perfomance.close();
   return 0;
 }
 
@@ -509,6 +546,7 @@ Hive::Hive(Device& dev, CommandQueue& comm, Context& cont, Program& prog,
   command = comm;
   id = id_name;
   bool flag = true;
+  done = false;
 
   if (device_type == CL_DEVICE_TYPE_CPU) name = "CPU";
   if (device_type == CL_DEVICE_TYPE_GPU) name = "GPU";

@@ -93,6 +93,10 @@ class Hive {
   vector<Function> functions;
   Event event;
   vector<Task> completed;
+  vector<double> time;
+  double work_time;
+  double read_time;
+  bool done;
 
  public:
   Hive(Device& dev, CommandQueue& comm, Context& cont, Program& prog,
@@ -126,6 +130,9 @@ class Keeper {
   int SetKernel(string file_name);
   NDRange GetGlobalRange(vector<unsigned int> global_range,
                          vector<unsigned int> offset);
+  double all_time;
+  double read_time;
+  double work_time;
 
  public:
   Keeper(string kernel_file_name);
@@ -168,10 +175,13 @@ class Keeper {
       }
     }
 
-    for (auto r : results) {
-      pt2Func(pointer, r);
+    for (auto& r : results) {
+      cout << r[0];
+      //  for (auto& cvd : r) {
+      //    pt2Func(pointer, cvd);
+      //  }
     }
-
+    // cout << *pointer;
     return 1;
   };
 
