@@ -138,6 +138,24 @@ int Keeper::SetKernel(string file_name) {
 
 int Keeper::Build() {
   for (auto& g : gardens) {
+    Context context(g.devices);
+    g.context = context;
+    Program program(context, source);
+    g.program = program;
+    for (auto& d : g.devices) {
+      CommandQueue command(g.context, d);
+	  
+      Hive hive(d, command, context, program, d.getInfo<CL_DEVICE_NAME>(),
+                d.getInfo<CL_DEVICE_TYPE>());
+      g.hives.push_back(hive);
+
+	  if (g.hives.back().program.build(g.hives.back().device) != CL_SUCCESS) {
+        cout << g.hives.back().program.getBuildInfo<CL_PROGRAM_BUILD_LOG>(d)
+             << endl;
+      }
+    }
+  }
+ /* for (auto& g : gardens) {
     for (auto& d : g.devices) {
       Context context(d);
       Program program(context, source);
@@ -152,7 +170,7 @@ int Keeper::Build() {
       }
     }
   }
-
+  */
   return 1;
 }
 
@@ -161,22 +179,26 @@ int Keeper::SetFunction(Function& function) {
   Function tmp = function;
 
   for (auto& g : gardens) {
-    for (auto& h : g.hives) {
+   // for (auto& h : g.hives) {
       function = tmp;
-      for (auto& f : h.functions) {
+      for (auto& f : g.functions) {  //  for (auto& f : h.functions) { 
         if (f.id == function.id) {
-          h.functions.pop_back();
+          //h.functions.pop_back();
+          g.functions.pop_back();
         }
       }
       function = tmp;
-      cl::Kernel func(h.program, function.name.c_str());
+     // cl::Kernel func(h.program, function.name.c_str());
+      cl::Kernel func(g.program, function.name.c_str());
       function.kernel = func;
       i = 0;
       for (auto& a : function.arguments) {
         if (a.pointer != NULL) {
-          Buffer buff(h.context, CL_MEM_READ_WRITE, a.size);
+         // Buffer buff(h.context, CL_MEM_READ_WRITE, a.size);
+		  Buffer buff(g.context, CL_MEM_READ_WRITE, a.size);
           a.buffer = buff;
-          function.Write(h.command, a.buffer, CL_TRUE, 0, a.size, a.pointer);
+         // function.Write(h.command, a.buffer, CL_TRUE, 0, a.size, a.pointer);
+          function.Write(g.hives[0].command, a.buffer, CL_TRUE, 0, a.size, a.pointer);
           function.kernel.setArg(i, a.buffer);
         } else {
           function.kernel.setArg(i, a.size, a.pointer);
@@ -184,8 +206,9 @@ int Keeper::SetFunction(Function& function) {
         i++;
       }
 
-      h.functions.push_back(function);
-    }
+     // h.functions.push_back(function);
+      g.functions.push_back(function);
+    //}
   }
 
   return 1;
@@ -216,7 +239,7 @@ int Keeper::SetTasks(string function_id, string parallel_method,
           local_range[0] -= 1;
         }
 
-      for (unsigned int i = 0; i < global_range[0] / steps[0]; i++) {
+      for (unsigned int i = 0; i < global_range[0] / steps[0]; ++i) {
         unsigned int offset_i = i * steps[0];
         unsigned int global_i = steps[0] + i * steps[0];
         Task tmp(function_id, parallel_method, {offset_i}, {global_i},
@@ -245,8 +268,8 @@ int Keeper::SetTasks(string function_id, string parallel_method,
           local_range[1] -= 1;
         }
 
-      for (unsigned int i = 0; i < global_range[0] / steps[0]; i++) {
-        for (unsigned int j = 0; j < global_range[1] / steps[1]; j++) {
+      for (unsigned int i = 0; i < global_range[0] / steps[0]; ++i) {
+        for (unsigned int j = 0; j < global_range[1] / steps[1]; ++j) {
           unsigned int offset_i = i * steps[0];
           unsigned int offset_j = j * steps[1];
           unsigned int global_i = steps[0] + i * steps[0];
@@ -268,22 +291,43 @@ int Keeper::SetTasks(string function_id, string parallel_method,
 int Keeper::Read() {
   for (auto& g : gardens) {
     for (auto& hive : g.hives) {
-      for (auto& task : hive.completed) {
-        for (auto& f : hive.functions) {
+      for (auto& f : g.functions) {
+        for (auto& task : hive.completed) {
           if (task.function_id == f.id) {
             for (auto& a : f.arguments) {
               if (a.change) {
-                if (a.type == "float") Read<float>(hive, a, task, a.pointer);
-                if (a.type == "double") Read<double>(hive, a, task, a.pointer);
-                if (a.type == "int") Read<int>(hive, a, task, a.pointer);
-                if (a.type == "unsigned int")
+                if (a.type == "float") {
+                  Read<float>(hive, a, task, a.pointer);
+                  continue;
+                }
+                if (a.type == "double") {
+                  Read<double>(hive, a, task, a.pointer);
+                  continue;
+                }
+                if (a.type == "int") {
+                  Read<int>(hive, a, task, a.pointer);
+                  continue;
+                }
+                if (a.type == "unsigned int") {
                   Read<unsigned int>(hive, a, task, a.pointer);
-                if (a.type == "short") Read<short>(hive, a, task, a.pointer);
-                if (a.type == "bool") Read<bool>(hive, a, task, a.pointer);
-                if (a.type == "char") Read<char>(hive, a, task, a.pointer);
+                  continue;
+                }
+                if (a.type == "short") {
+                  Read<short>(hive, a, task, a.pointer);
+                  continue;
+                }
+                if (a.type == "bool") {
+                  Read<bool>(hive, a, task, a.pointer);
+                  continue;
+                }
+                if (a.type == "char") {
+                  Read<char>(hive, a, task, a.pointer);
+                  continue;
+                }
               }
             }
           }
+          //}
         }
       }
     }
@@ -319,7 +363,7 @@ int Keeper::Start() {
   while (tasks.size() != 0) {
     for (auto& g : gardens) {
       for (auto& h : g.hives) {
-        for (auto& f : h.functions) {
+        for (auto& f : g.functions) {
           if (tasks.size() != 0 && f.id == tasks.back().function_id) {
             if (tasks.size() != 0) {
               h.command.flush();
@@ -474,13 +518,10 @@ int Keeper::Test(string function_id, vector<unsigned int> global_range,
     SetTask(function_id, "CPU", {0}, global_range, local_range);
     Start();
     Info("TIME");
+    perfomance << "0\t" << all_time << "\t" << work_time << endl;
     //=====
 
-    cout << "0% CPU 100% GPU: " << endl;
-    SetTask(function_id, "GPU", {0}, global_range, local_range);
-    Start();
-    Info("TIME");
-    //========
+
 
     cout << endl;
     for (int i = 10; i <= 50; i += 10) {
@@ -490,6 +531,7 @@ int Keeper::Test(string function_id, vector<unsigned int> global_range,
                local_range);
       Start();
       Info("TIME");
+      
     }
 
     cout << endl;
@@ -504,8 +546,16 @@ int Keeper::Test(string function_id, vector<unsigned int> global_range,
               {global_range[0]}, local_range);
 
       Start();
-      Info("TIME");
+      perfomance << i << "\t" << all_time << "\t" << work_time << endl;
+	  Info("TIME");
     }
+
+	cout << "0% CPU 100% GPU: " << endl;
+    SetTask(function_id, "GPU", {0}, global_range, local_range);
+    Start();
+    Info("TIME");
+    perfomance << "100\t" << all_time << "\t" << work_time << endl;
+    //========
 
     cout << endl;
   }

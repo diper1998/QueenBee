@@ -10,8 +10,8 @@ kernel void SumVectors(global const float* A, global const float* B,
 
 kernel void MulMatrix(global const float* A, global const float* B,
                       global float* C, constant int* ptrSize) {
-  int i = get_global_id(1);
-  int j = get_global_id(0);
+  int i = get_global_id(0);
+  int j = get_global_id(1);
   int size = *ptrSize;
 
 

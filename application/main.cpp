@@ -24,11 +24,11 @@ void ReadFunct(float* out, float*in) {
 
 
 int main(void) {
-  MulMatrixOpt<float>(4800);
- // MulMatrix<float>(12800);
- //   SumVectors<float>(2000);
- // MonteCarlo(100000);
-//	Convolution(6400, 100, "ALL", 10);
+ // MulMatrixOpt<float>(1600);
+//  MulMatrix<float>(1600);
+ //   SumVectors<float>(10000);
+ MonteCarlo(100000);
+	//Convolution(2125, 50, "ALL", 10);
   
   return 0;
 }
@@ -64,21 +64,23 @@ void MulMatrix(unsigned int size) {
   queen.SetFunction(MulMatrix);
   //queen.Test("mul", {size, size});
 
-   queen.Info("DEV");
+  // queen.Info("DEV");
 
-  queen.SetTasks("mul", "ALL", {size/10 , size/10}, {size, size});
+   queen.Test("mul", {size, size});
+
+//  queen.SetTasks("mul", "ALL", {size/10 , size/10}, {size, size});
  // queen.SetTask("mul", "ALL", {0, 0}, {size, size});
     QueryPerformanceCounter(&t1);
- 
-  queen.Start();
+
+ // queen.Start();
 //  queen.Wait();
 //  void (*pt2Func)(Type*, Type*) = NULL;
 //  pt2Func = &ReadFunct;
   //queen.Read<Type>((*pt2Func));
 
  
-  queen.Info("STAT");
-  queen.Info("TIME");
+//  queen.Info("STAT");
+//  queen.Info("TIME");
 
   /////////////////////////////////////////////
  
@@ -146,7 +148,7 @@ void MulMatrixOpt(unsigned int size) {
 
   queen.Test("mul", {size, size}, {block, block});
 
- // queen.SetTask("mul", "GPU", {0, 0}, {10000, 10000}, {block, block});
+ // queen.SetTasks("mul", "ALL", {100, 100}, {1000, 1000}, {block, block});
 
  // queen.SetTask("mul", "CPU", {8500, 8500}, {10000, 10000}, {block, block});
  // queen.SetTask("mul", "GPU", {0, 0}, {8500, 8500}, {block, block});
@@ -177,14 +179,14 @@ void MulMatrixOpt(unsigned int size) {
  // }
  // */
  //
- // int error = 0;
- // for (unsigned int i = 0; i < size * size; i++) {
- //   if (C[i] != size * 2) {
- //     error++;
- //   }
- // }
- //
- // cout << "ERROR = " << error << endl;
+  int error = 0;
+  for (unsigned int i = 0; i < size * size; i++) {
+    if (C[i] != size * 2) {
+      error++;
+    }
+  }
+
+  cout << "ERROR = " << error << endl;
 
   delete[] A;
   delete[] B;
@@ -345,7 +347,7 @@ void Convolution(unsigned int size, unsigned int radius, string mode,
   ///////////////////////////////////////////////
   Keeper queen("kernel.txt");
 
-  Function Convolution("conv", "Convolution", false);
+  Function Convolution("conv", "Convolution", true);
   Convolution.SetArgument<float>(A, {size, size}, false);
   Convolution.SetArgument<float>(B, {size, size}, true);
   Convolution.SetArgument<unsigned int>(ptr_size, {1}, false);

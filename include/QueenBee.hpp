@@ -86,7 +86,7 @@ class Hive {
  protected:
   string id;
   string name;
-  Context context;
+ Context context;
   vector<Device> device;
   Program program;
   CommandQueue command;
@@ -111,6 +111,10 @@ class Garden {  // Platform
   Platform platform;
   vector<Device> devices;
   vector<Hive> hives;
+
+  vector<Function> functions;
+  Context context;
+  Program program;
 
  public:
   Garden();
@@ -205,7 +209,7 @@ class Keeper {
       case 2:
 
         if (arg.inverse) {
-          for (unsigned int i = task.offsets[1]; i < task.globals[1]; i++) {
+          for (unsigned int i = task.offsets[1]; i < task.globals[1]; ++i) {
             hive.command.enqueueReadBuffer(
                 arg.buffer, CL_FALSE,
                 (i * arg.dimension[1] + task.offsets[0]) * sizeof(Type),
@@ -216,7 +220,7 @@ class Keeper {
         }
 
         if (!arg.inverse) {
-          for (unsigned int i = task.offsets[0]; i < task.globals[0]; i++) {
+          for (unsigned int i = task.offsets[0]; i < task.globals[0]; ++i) {
             hive.command.enqueueReadBuffer(
                 arg.buffer, CL_FALSE,
                 (i * arg.dimension[0] + task.offsets[1]) * sizeof(Type),
