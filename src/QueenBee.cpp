@@ -144,22 +144,7 @@ int Keeper::Build() {
     g.program = program;
     for (auto& d : g.devices) {
       CommandQueue command(g.context, d);
-	  
-      Hive hive(d, command, context, program, d.getInfo<CL_DEVICE_NAME>(),
-                d.getInfo<CL_DEVICE_TYPE>());
-      g.hives.push_back(hive);
 
-	  if (g.hives.back().program.build(g.hives.back().device) != CL_SUCCESS) {
-        cout << g.hives.back().program.getBuildInfo<CL_PROGRAM_BUILD_LOG>(d)
-             << endl;
-      }
-    }
-  }
- /* for (auto& g : gardens) {
-    for (auto& d : g.devices) {
-      Context context(d);
-      Program program(context, source);
-      CommandQueue command(context, d);
       Hive hive(d, command, context, program, d.getInfo<CL_DEVICE_NAME>(),
                 d.getInfo<CL_DEVICE_TYPE>());
       g.hives.push_back(hive);
@@ -170,7 +155,22 @@ int Keeper::Build() {
       }
     }
   }
-  */
+  /* for (auto& g : gardens) {
+     for (auto& d : g.devices) {
+       Context context(d);
+       Program program(context, source);
+       CommandQueue command(context, d);
+       Hive hive(d, command, context, program, d.getInfo<CL_DEVICE_NAME>(),
+                 d.getInfo<CL_DEVICE_TYPE>());
+       g.hives.push_back(hive);
+
+       if (g.hives.back().program.build(g.hives.back().device) != CL_SUCCESS) {
+         cout << g.hives.back().program.getBuildInfo<CL_PROGRAM_BUILD_LOG>(d)
+              << endl;
+       }
+     }
+   }
+   */
   return 1;
 }
 
@@ -179,35 +179,36 @@ int Keeper::SetFunction(Function& function) {
   Function tmp = function;
 
   for (auto& g : gardens) {
-   // for (auto& h : g.hives) {
-      function = tmp;
-      for (auto& f : g.functions) {  //  for (auto& f : h.functions) { 
-        if (f.id == function.id) {
-          //h.functions.pop_back();
-          g.functions.pop_back();
-        }
+    // for (auto& h : g.hives) {
+    function = tmp;
+    for (auto& f : g.functions) {  //  for (auto& f : h.functions) {
+      if (f.id == function.id) {
+        // h.functions.pop_back();
+        g.functions.pop_back();
       }
-      function = tmp;
-     // cl::Kernel func(h.program, function.name.c_str());
-      cl::Kernel func(g.program, function.name.c_str());
-      function.kernel = func;
-      i = 0;
-      for (auto& a : function.arguments) {
-        if (a.pointer != NULL) {
-         // Buffer buff(h.context, CL_MEM_READ_WRITE, a.size);
-		  Buffer buff(g.context, CL_MEM_READ_WRITE, a.size);
-          a.buffer = buff;
-         // function.Write(h.command, a.buffer, CL_TRUE, 0, a.size, a.pointer);
-          function.Write(g.hives[0].command, a.buffer, CL_TRUE, 0, a.size, a.pointer);
-          function.kernel.setArg(i, a.buffer);
-        } else {
-          function.kernel.setArg(i, a.size, a.pointer);
-        }
-        i++;
+    }
+    function = tmp;
+    // cl::Kernel func(h.program, function.name.c_str());
+    cl::Kernel func(g.program, function.name.c_str());
+    function.kernel = func;
+    i = 0;
+    for (auto& a : function.arguments) {
+      if (a.pointer != NULL) {
+        // Buffer buff(h.context, CL_MEM_READ_WRITE, a.size);
+        Buffer buff(g.context, CL_MEM_READ_WRITE, a.size);
+        a.buffer = buff;
+        // function.Write(h.command, a.buffer, CL_TRUE, 0, a.size, a.pointer);
+        function.Write(g.hives[0].command, a.buffer, CL_TRUE, 0, a.size,
+                       a.pointer);
+        function.kernel.setArg(i, a.buffer);
+      } else {
+        function.kernel.setArg(i, a.size, a.pointer);
       }
+      i++;
+    }
 
-     // h.functions.push_back(function);
-      g.functions.push_back(function);
+    // h.functions.push_back(function);
+    g.functions.push_back(function);
     //}
   }
 
@@ -353,6 +354,7 @@ int Keeper::Start() {
       h.completed.clear();
       h.time.clear();
       h.done = false;
+      h.busy = false;
     }
   }
   LARGE_INTEGER frequency;
@@ -363,6 +365,17 @@ int Keeper::Start() {
   while (tasks.size() != 0) {
     for (auto& g : gardens) {
       for (auto& h : g.hives) {
+        h.command.flush();
+        if (h.time.size() != 0 &&
+            h.event.getInfo<CL_EVENT_COMMAND_EXECUTION_STATUS>() ==
+                CL_COMPLETE &&
+            h.busy == true) {
+          QueryPerformanceCounter(&t2);
+          h.time.back() =
+              t2.QuadPart / double(frequency.QuadPart) - h.time.back();
+          h.busy = false;
+        }
+
         for (auto& f : g.functions) {
           if (tasks.size() != 0 && f.id == tasks.back().function_id) {
             if (tasks.size() != 0) {
@@ -381,6 +394,7 @@ int Keeper::Start() {
 
                 QueryPerformanceCounter(&t1);
                 h.time.push_back(t1.QuadPart / double(frequency.QuadPart));
+                h.busy = true;
                 int status = h.command.enqueueNDRangeKernel(
                     f.kernel, GetRange(tasks.back().offsets),
                     GetGlobalRange(tasks.back().globals, tasks.back().offsets),
@@ -398,6 +412,9 @@ int Keeper::Start() {
       }
     }
   }
+
+
+
   int index = 0;
   int count = 0;
   for (auto& g : gardens) {
@@ -453,9 +470,7 @@ int Keeper::Test(string function_id, vector<unsigned int> global_range,
     Info("TIME");
 
     perfomance << "0\t" << all_time << "\t" << work_time << endl;
-    
 
-   
     //========
 
     cout << endl;
@@ -485,32 +500,31 @@ int Keeper::Test(string function_id, vector<unsigned int> global_range,
       perfomance << i << "\t" << all_time << "\t" << work_time << endl;
     }
 
-
-	 //=====
+    //=====
     cout << "0% CPU 100% GPU: " << endl;
     SetTask(function_id, "GPU", {0, 0}, global_range, local_range);
     Start();
     Info("TIME");
+
+    perfomance << "100\t" << all_time << "\t" << work_time << endl;
+
+    cout << endl;
     
-	perfomance << "100\t" << all_time << "\t" << work_time << endl;
-   
+cout << "Y:" << endl;
+for (unsigned int i = 1; i < 100; i += 1) {
+  cout << 100 - i << "% CPU " << i << "% GPU: " << endl;
 
-	cout << endl;
-        /* 
-    cout << "Y:" << endl;
-    for (unsigned int i = 1; i < 100; i += 1) {
-      cout << 100 - i << "% CPU " << i << "% GPU: " << endl;
+  SetTask(function_id, "GPU", {0, 0},
+          {global_range[1], global_range[0] * i / 100}, local_range);
 
-      SetTask(function_id, "GPU", {0, 0},
-              {global_range[1], global_range[0] * i / 100}, local_range);
+  SetTask(function_id, "CPU", {0, global_range[0] * i / 100},
+          {global_range[0], global_range[1]}, local_range);
 
-      SetTask(function_id, "CPU", {0, global_range[0] * i / 100},
-              {global_range[0], global_range[1]}, local_range);
-
-      Start();
-      Info("TIME");
-    }
-        */
+  Start();
+  Info("TIME");
+  perfomance << i << "\t" << all_time << "\t" << work_time << endl;
+}
+    
   }
   //===========================================================
   if (global_range.size() == 1) {
@@ -521,8 +535,6 @@ int Keeper::Test(string function_id, vector<unsigned int> global_range,
     perfomance << "0\t" << all_time << "\t" << work_time << endl;
     //=====
 
-
-
     cout << endl;
     for (int i = 10; i <= 50; i += 10) {
       cout << "ALL " << i << "% : " << endl;
@@ -531,11 +543,10 @@ int Keeper::Test(string function_id, vector<unsigned int> global_range,
                local_range);
       Start();
       Info("TIME");
-      
     }
 
     cout << endl;
-      
+
     cout << "X:" << endl;
     for (unsigned int i = 1; i < 100; i += 1) {
       cout << 100 - i << "% CPU " << i << "% GPU: " << endl;
@@ -547,10 +558,10 @@ int Keeper::Test(string function_id, vector<unsigned int> global_range,
 
       Start();
       perfomance << i << "\t" << all_time << "\t" << work_time << endl;
-	  Info("TIME");
+      Info("TIME");
     }
 
-	cout << "0% CPU 100% GPU: " << endl;
+    cout << "0% CPU 100% GPU: " << endl;
     SetTask(function_id, "GPU", {0}, global_range, local_range);
     Start();
     Info("TIME");

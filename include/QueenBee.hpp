@@ -97,6 +97,7 @@ class Hive {
   double work_time;
   double read_time;
   bool done;
+  bool busy;
 
  public:
   Hive(Device& dev, CommandQueue& comm, Context& cont, Program& prog,

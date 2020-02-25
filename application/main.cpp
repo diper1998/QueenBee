@@ -24,10 +24,10 @@ void ReadFunct(float* out, float*in) {
 
 
 int main(void) {
- // MulMatrixOpt<float>(1600);
+  MulMatrixOpt<float>(1600);
 //  MulMatrix<float>(1600);
  //   SumVectors<float>(10000);
- MonteCarlo(100000);
+// MonteCarlo(100000);
 	//Convolution(2125, 50, "ALL", 10);
   
   return 0;
