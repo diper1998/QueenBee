@@ -143,7 +143,8 @@ int Keeper::Build() {
     Program program(context, source);
     g.program = program;
     for (auto& d : g.devices) {
-      CommandQueue command(g.context, d, CL_QUEUE_PROFILING_ENABLE);
+      //CommandQueue command(g.context, d, CL_QUEUE_PROFILING_ENABLE);
+      CommandQueue command(g.context, d);
 
       Hive hive(d, command, context, program, d.getInfo<CL_DEVICE_NAME>(),
                 d.getInfo<CL_DEVICE_TYPE>());
@@ -339,126 +340,252 @@ int Keeper::Read() {
   return 1;
 }
 
-int Keeper::Start() {
-  cl_ulong time_end, time_start;
+//int Keeper::Start() {
+//  cl_ulong time_end, time_start;
+//
+//  LARGE_INTEGER wt1;
+//  LARGE_INTEGER wt2;
+//
+//  LARGE_INTEGER at1;
+//  LARGE_INTEGER at2;
+//
+//  QueryPerformanceCounter(&at1);
+//  QueryPerformanceCounter(&wt1);
+//  
+//
+//  for (auto& g : gardens) {
+//    for (auto& h : g.hives) {
+//      h.completed.clear();
+//      h.time.clear();
+//      h.busy = false;
+//      h.done = false;
+//    }
+//  }
+//  LARGE_INTEGER frequency;
+//  QueryPerformanceFrequency(&frequency);
+//
+//  while (tasks.size() != 0) {
+//    for (auto& g : gardens) {
+//      for (auto& h : g.hives) {
+//
+//
+//        if (tasks.size() != 0) {
+//          for (auto& f : g.functions) {
+//            if (tasks.size() != 0 && f.id == tasks.back().function_id) {
+//              if (tasks.size() != 0) {
+//                h.command.flush();
+//                if (((tasks.back().parallel_method == "ALL" &&
+//                      h.event.getInfo<CL_EVENT_COMMAND_EXECUTION_STATUS>() ==
+//                          CL_COMPLETE) ||
+//                     (h.name == tasks.back().parallel_method &&
+//                      h.event.getInfo<CL_EVENT_COMMAND_EXECUTION_STATUS>() ==
+//                          CL_COMPLETE))) {
+//                  if (h.time.size() != 0 && h.busy == true) {
+//                    h.busy = false;
+//
+//                    h.event.getProfilingInfo(CL_PROFILING_COMMAND_START,
+//                                             &time_start);
+//                    h.event.getProfilingInfo(CL_PROFILING_COMMAND_END,
+//                                             &time_end);
+//
+//                    h.time.back() = double(time_end - time_start) / 1000000000;
+//                  }
+//
+//                  h.time.push_back(0);
+//                  h.busy = true;
+//                  int status = h.command.enqueueNDRangeKernel(
+//                      f.kernel, GetRange(tasks.back().offsets),
+//                      GetGlobalRange(tasks.back().globals,
+//                                     tasks.back().offsets),
+//                      GetRange(tasks.back().locals), NULL, &h.event);
+//
+//                  h.completed.push_back(tasks.back());
+//                  if (tasks.size() != 0) tasks.pop_back();
+//
+//
+//                  break;
+//                } 
+//				else {
+//					
+//                  if (h.name == tasks.back().parallel_method) {
+//                    
+//					  for (auto& t : tasks) {
+//                      if (t.parallel_method != h.name) {
+//                        swap(t, tasks.back());
+//                        break;
+//                      }
+//                    }
+//
+//				  }
+//				
+//				}
+//              }
+//            }
+//          }
+//        }
+//      }
+//    }
+//  }
+//
+//
+//
+//
+//
+// //for (auto& g : gardens) {
+// //   for (auto& h : g.hives) {
+// //     
+////		h.event.wait();
+// //     if (h.time.size() != 0) {
+// //       h.event.getProfilingInfo(CL_PROFILING_COMMAND_START, &time_start);
+// //       h.event.getProfilingInfo(CL_PROFILING_COMMAND_END, &time_end);
+// //
+// //      h.time.back() = double(time_end - time_start) / 1000000000;
+// //     }
+// //   }
+// // }
+//
+//
+//
+//
+//  QueryPerformanceCounter(&wt2);
+//
+//  LARGE_INTEGER rt1;
+//  LARGE_INTEGER rt2;
+//
+//  QueryPerformanceCounter(&rt1);
+//  Read();
+//
+//  QueryPerformanceCounter(&rt2);
+//
+//  QueryPerformanceCounter(&at2);
+//
+//  work_time = (wt2.QuadPart - wt1.QuadPart) / double(frequency.QuadPart);
+//
+//  read_time = (rt2.QuadPart - rt1.QuadPart) / double(frequency.QuadPart);
+//
+//  all_time = (at2.QuadPart - at1.QuadPart) / double(frequency.QuadPart);
+//
+//  return 1;
+//}
 
+
+
+int Keeper::Start() {
   LARGE_INTEGER wt1;
   LARGE_INTEGER wt2;
-
   LARGE_INTEGER at1;
   LARGE_INTEGER at2;
-
-  QueryPerformanceCounter(&at1);
   QueryPerformanceCounter(&wt1);
-  
-
+  QueryPerformanceCounter(&at1);
   for (auto& g : gardens) {
     for (auto& h : g.hives) {
       h.completed.clear();
       h.time.clear();
+      h.done = false;
       h.busy = false;
     }
   }
   LARGE_INTEGER frequency;
+  LARGE_INTEGER t2;
+  LARGE_INTEGER t1;
   QueryPerformanceFrequency(&frequency);
-
   while (tasks.size() != 0) {
     for (auto& g : gardens) {
       for (auto& h : g.hives) {
-        if (tasks.size() != 0) {
-          for (auto& f : g.functions) {
-            if (tasks.size() != 0 && f.id == tasks.back().function_id) {
-              if (tasks.size() != 0) {
-                h.command.flush();
-                if (((tasks.back().parallel_method == "ALL" &&
-                      h.event.getInfo<CL_EVENT_COMMAND_EXECUTION_STATUS>() ==
-                          CL_COMPLETE) ||
-                     (h.name == tasks.back().parallel_method &&
-                      h.event.getInfo<CL_EVENT_COMMAND_EXECUTION_STATUS>() ==
-                          CL_COMPLETE))) {
-                  if (h.time.size() != 0 && h.busy == true) {
-                    h.busy = false;
+        h.command.flush();
+        if (h.time.size() != 0 &&
+            h.event.getInfo<CL_EVENT_COMMAND_EXECUTION_STATUS>() ==
+                CL_COMPLETE &&
+            h.busy == true) {
+          QueryPerformanceCounter(&t2);
+          h.time.back() =
+              t2.QuadPart / double(frequency.QuadPart) - h.time.back();
+          h.busy = false;
+        }
 
-                    h.event.getProfilingInfo(CL_PROFILING_COMMAND_START,
-                                             &time_start);
-                    h.event.getProfilingInfo(CL_PROFILING_COMMAND_END,
-                                             &time_end);
+        for (auto& f : g.functions) {
+          if (tasks.size() != 0 && f.id == tasks.back().function_id) {
+            if (tasks.size() != 0) {
+              h.command.flush();
+              if (((tasks.back().parallel_method == "ALL" &&
+                    h.event.getInfo<CL_EVENT_COMMAND_EXECUTION_STATUS>() ==
+                        CL_COMPLETE) ||
+                   (h.name == tasks.back().parallel_method &&
+                    h.event.getInfo<CL_EVENT_COMMAND_EXECUTION_STATUS>() ==
+                        CL_COMPLETE))) {
+                if (h.time.size() != 0) {
+                  QueryPerformanceCounter(&t2);
+                  h.time.back() =
+                      t2.QuadPart / double(frequency.QuadPart) - h.time.back();
+                }
 
-                    h.time.back() = double(time_end - time_start) / 1000000000;
-                  }
-
-                  h.time.push_back(0);
-                  h.busy = true;
-                  int status = h.command.enqueueNDRangeKernel(
-                      f.kernel, GetRange(tasks.back().offsets),
-                      GetGlobalRange(tasks.back().globals,
-                                     tasks.back().offsets),
-                      GetRange(tasks.back().locals), NULL, &h.event);
-
-                  h.completed.push_back(tasks.back());
-                  if (tasks.size() != 0) tasks.pop_back();
-
-
-                  break;
-                } 
-				else {
-					
-                  if (h.name == tasks.back().parallel_method) {
-                    
-					  for (auto& t : tasks) {
-                      if (t.parallel_method != h.name) {
-                        swap(t, tasks.back());
-                        break;
-                      }
-                    }
-
-				  }
-				
-				}
+                QueryPerformanceCounter(&t1);
+                h.time.push_back(t1.QuadPart / double(frequency.QuadPart));
+                h.busy = true;
+                int status = h.command.enqueueNDRangeKernel(
+                    f.kernel, GetRange(tasks.back().offsets),
+                    GetGlobalRange(tasks.back().globals, tasks.back().offsets),
+                    GetRange(tasks.back().locals), NULL, &h.event);
+                h.completed.push_back(tasks.back());
+                if (tasks.size() != 0) tasks.pop_back();
+                break;
               }
             }
+          } else {
+                             if (h.name == tasks.back().parallel_method) {
+           
+           					  for (auto& t : tasks) {
+                                 if (t.parallel_method != h.name) {
+                                   swap(t, tasks.back());
+                                   break;
+                                 }
+                               }
+           
+           				  }
           }
         }
       }
     }
   }
 
+  int index = 0;
+  int count = 0;
   for (auto& g : gardens) {
-    for (auto& h : g.hives) {
-      
-		h.event.wait();
-      if (h.time.size() != 0) {
-        h.event.getProfilingInfo(CL_PROFILING_COMMAND_START, &time_start);
-        h.event.getProfilingInfo(CL_PROFILING_COMMAND_END, &time_end);
-
-        h.time.back() = double(time_end - time_start) / 1000000000;
+    index += g.hives.size();
+    count += g.hives.size();
+  }
+  while (index != 0) {
+    for (auto& g : gardens) {
+      for (auto& h : g.hives) {
+        h.command.flush();
+        if (h.event.getInfo<CL_EVENT_COMMAND_EXECUTION_STATUS>() ==
+                CL_COMPLETE &&
+            h.done != true) {
+          index--;
+          h.done = true;
+          if (h.time.size() != 0) {
+            QueryPerformanceCounter(&t2);
+            h.time.back() =
+                t2.QuadPart / double(frequency.QuadPart) - h.time.back();
+          }
+        }
       }
     }
   }
-
-
-
-
   QueryPerformanceCounter(&wt2);
-
   LARGE_INTEGER rt1;
   LARGE_INTEGER rt2;
-
   QueryPerformanceCounter(&rt1);
   Read();
-
-  QueryPerformanceCounter(&rt2);
-
   QueryPerformanceCounter(&at2);
-
+  QueryPerformanceCounter(&rt2);
   work_time = (wt2.QuadPart - wt1.QuadPart) / double(frequency.QuadPart);
-
   read_time = (rt2.QuadPart - rt1.QuadPart) / double(frequency.QuadPart);
-
   all_time = (at2.QuadPart - at1.QuadPart) / double(frequency.QuadPart);
-
   return 1;
 }
+
+
 
 int Keeper::Test(string function_id, vector<unsigned int> global_range,
                  vector<unsigned int> local_range) {

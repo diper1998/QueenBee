@@ -24,8 +24,8 @@ void ReadFunct(float* out, float*in) {
 
 
 int main(void) {
-  //MulMatrixOpt<float>(3200);
-  MulMatrix<float>(1600);
+  MulMatrixOpt<float>(3200);
+  //MulMatrix<float>(1600);
  //   SumVectors<float>(10000);
 // MonteCarlo(100000);
 	//Convolution(2125, 50, "ALL", 10);
@@ -66,13 +66,13 @@ void MulMatrix(unsigned int size) {
 
   // queen.Info("DEV");
 
-   queen.Test("mul", {size, size});
+  // queen.Test("mul", {size, size});
 
 //  queen.SetTasks("mul", "ALL", {size/10 , size/10}, {size, size});
- // queen.SetTask("mul", "ALL", {0, 0}, {size, size});
+   queen.SetTask("mul", "GPU", {0, 0}, {size, size});
     QueryPerformanceCounter(&t1);
 
- // queen.Start();
+  queen.Start();
 //  queen.Wait();
 //  void (*pt2Func)(Type*, Type*) = NULL;
 //  pt2Func = &ReadFunct;
@@ -80,7 +80,7 @@ void MulMatrix(unsigned int size) {
 
  
 //  queen.Info("STAT");
-//  queen.Info("TIME");
+  queen.Info("TIME");
 
   /////////////////////////////////////////////
  
@@ -109,22 +109,9 @@ void MulMatrix(unsigned int size) {
 
 template <typename Type>
 void MulMatrixOpt(unsigned int size) {
-  //Type* A = new Type[size * size];
-  //Type* B = new Type[size * size];
-  //Type* C = new Type[size * size];
-
-  Type* A_1 = new Type[1600*1600];
-  Type* B_1 = new Type[1600*1600];
-  Type* C_1 = new Type[1600*1600];
-
-  Type* A_2 = new Type[2400*2400];
-  Type* B_2 = new Type[2400*2400];
-  Type* C_2 = new Type[2400*2400];
-
-  Type* A_3 = new Type[3200*3200];
-  Type* B_3 = new Type[3200*3200];
-  Type* C_3 = new Type[3200*3200];
-
+  Type* A = new Type[size * size];
+  Type* B = new Type[size * size];
+  Type* C = new Type[size * size];
 
   unsigned int block = 16;
 
@@ -132,183 +119,72 @@ void MulMatrixOpt(unsigned int size) {
   Type* b = NULL;
 
   for (unsigned int i = 0; i < size * size; i++) {
-   // A[i] = 1;
-   // B[i] = 2;
-   // C[i] = 0;
-
+    A[i] = 1;
+    B[i] = 2;
+    C[i] = 0;
   }
 
-   for (unsigned int i = 0; i < 1600 * 1600; i++) {
-    A_1[i] = 1;
-    B_1[i] = 2;
-    C_1[i] = 0;
-  }
-
-
-    for (unsigned int i = 0; i < 2400 * 2400; i++) {
-    A_2[i]= 1;
-    B_2[i]= 2;
-    C_2[i]= 0;
-  }
-
-	  for (unsigned int i = 0; i < 3200 * 3200; i++) {
-    A_3[i] = 1;
-    B_3[i] = 2;
-    C_3[i] = 0;
-  }
-
-
-
- // unsigned int* ptr_size = &size;
-  unsigned int size_1 = 1600;
-  unsigned int size_2 = 2400;
-  unsigned int size_3 = 3200;
-
-
-  unsigned int* ptr_size_1 = &size_1;
-  unsigned int* ptr_size_2 = &size_2;
-  unsigned int* ptr_size_3 = &size_3;
-
+  unsigned int* ptr_size = &size;
 
   unsigned int* ptr_block = &block;
-  LARGE_INTEGER frequency;
-  LARGE_INTEGER t1, t2;
-  double time;
-  QueryPerformanceFrequency(&frequency);
 
   ///////////////////////////////////////////////
   Keeper queen("kernel.txt");
 
- // Function MulMatrixOpt("mul", "MulMatrixOpt", true);
- // MulMatrixOpt.SetArgument<Type>(A, {size, size}, false);
- // MulMatrixOpt.SetArgument<Type>(B, {size, size}, false);
- // MulMatrixOpt.SetArgument<Type>(C, {size, size}, true);
- // MulMatrixOpt.SetArgument<unsigned int*>(ptr_size, {1}, false);
- // MulMatrixOpt.SetArgument<Type>(a, {block, block}, false);
- // MulMatrixOpt.SetArgument<Type>(b, {block, block}, false);
- // MulMatrixOpt.SetArgument<unsigned int*>(ptr_block, {1}, false);
+  Function MulMatrixOpt("mul", "MulMatrixOpt", true);
+  MulMatrixOpt.SetArgument<Type>(A, {size, size}, false);
+  MulMatrixOpt.SetArgument<Type>(B, {size, size}, false);
+  MulMatrixOpt.SetArgument<Type>(C, {size, size}, true);
+  MulMatrixOpt.SetArgument<unsigned int*>(ptr_size, {1}, false);
+  MulMatrixOpt.SetArgument<Type>(a, {block, block}, false);
+  MulMatrixOpt.SetArgument<Type>(b, {block, block}, false);
+  MulMatrixOpt.SetArgument<unsigned int*>(ptr_block, {1}, false);
+  queen.SetFunction(MulMatrixOpt);
 
+   queen.SetTask("mul", "CPU", {size / 2, size / 2}, {size, size},{block,
+   block});
+  
+   queen.SetTask("mul", "CPU", {size / 2, 0}, {size, size / 2}, {block,
+   block});
+  
+   queen.SetTask("mul", "CPU", {0, size / 2}, {size / 2, size}, {block,
+   block});
+  
+   queen.SetTask("mul", "CPU", {0, 0}, {size / 2, size / 2}, {block, block});
 
-   Function MulMatrixOpt_1("mul_1", "MulMatrixOpt", true);
-  MulMatrixOpt_1.SetArgument<Type>(A_1, {1600,1600}, false);
-  MulMatrixOpt_1.SetArgument<Type>(B_1, {1600,1600}, false);
-  MulMatrixOpt_1.SetArgument<Type>(C_1, {1600,1600}, true);
-  MulMatrixOpt_1.SetArgument<unsigned int*>(ptr_size_1, {1}, false);
-  MulMatrixOpt_1.SetArgument<Type>(a, {block, block}, false);
-  MulMatrixOpt_1.SetArgument<Type>(b, {block, block}, false);
-  MulMatrixOpt_1.SetArgument<unsigned int*>(ptr_block, {1}, false);	
-   queen.SetFunction(MulMatrixOpt_1);
-
-   Function MulMatrixOpt_2("mul_2", "MulMatrixOpt", true);
-  MulMatrixOpt_2.SetArgument<Type>(A_2, {2400,2400}, false);
-  MulMatrixOpt_2.SetArgument<Type>(B_2, {2400,2400}, false);
-  MulMatrixOpt_2.SetArgument<Type>(C_2, {2400,2400}, true);
-  MulMatrixOpt_2.SetArgument<unsigned int*>(ptr_size_2, {1}, false);
-  MulMatrixOpt_2.SetArgument<Type>(a, {block, block}, false);
-  MulMatrixOpt_2.SetArgument<Type>(b, {block, block}, false);
-  MulMatrixOpt_2.SetArgument<unsigned int*>(ptr_block, {1}, false);
-
-    queen.SetFunction(MulMatrixOpt_2);
-
-   Function MulMatrixOpt_3("mul_3", "MulMatrixOpt", true);
-  MulMatrixOpt_3.SetArgument<Type>(A_3, {3200,3200}, false);
-  MulMatrixOpt_3.SetArgument<Type>(B_3, {3200,3200}, false);
-  MulMatrixOpt_3.SetArgument<Type>(C_3, {3200,3200}, true);
-  MulMatrixOpt_3.SetArgument<unsigned int*>(ptr_size_3, {1}, false);
-  MulMatrixOpt_3.SetArgument<Type>(a, {block, block}, false);
-  MulMatrixOpt_3.SetArgument<Type>(b, {block, block}, false);
-  MulMatrixOpt_3.SetArgument<unsigned int*>(ptr_block, {1}, false);
-
-  queen.SetFunction(MulMatrixOpt_3);
-
-  queen.Info("STAT");
-
- 
-
-
-//    queen.SetTask("mul_3", "GPU", {0, 0}, {3200, 3200}, {block, block});
-//
-	
-//    queen.SetTask("mul_3", "GPU", {0, 0}, {3200, 3200}, {block, block});
-//
-//	
-	 queen.SetTask("mul_2", "GPU", {0, 0}, {2400, 2400}, {block, block});
-//    
-//	  queen.SetTask("mul_2", "GPU", {0, 0}, {2400, 2400}, {block, block});
-     
-
-	  queen.SetTask("mul_1", "CPU", {0, 0}, {1600, 1600}, {block, block});
-
-	      queen.SetTask("mul_2", "CPU", {0, 0}, {2400, 2400}, {block, block});
-
-
-	  queen.SetTask("mul_2", "GPU", {0, 0}, {2400, 2400}, {block, block});
-
-
-	    queen.SetTask("mul_1", "GPU", {0, 0}, {1600, 1600}, {block, block});
-
-		  
-
-		    queen.SetTask("mul_3", "GPU", {0, 0}, {3200, 3200},
-                                {block, block});
+  // queen.SetTask("mul", "CPU", {0, 0}, {size, size}, {block, block});
+  // queen.SetTask("mul", "CPU", {0, 0}, {size, size}, {block, block});
+  // queen.SetTask("mul", "CPU", {0, 0}, {size, size}, {block, block});
+  // queen.SetTask("mul", "CPU", {0, 0}, {size, size}, {block, block});
+  // queen.SetTask("mul", "CPU", {0, 0}, {size, size}, {block, block});
 
    queen.Start();
 
-   queen.Info("TIME");
+  // queen.Info("TIME");
 
  // queen.Test("mul", {size, size}, {block, block});
 
- // queen.SetTasks("mul", "ALL", {100, 100}, {1000, 1000}, {block, block});
+  // /*
+  // for (int i = 0; i < size; i++) {
+  // for (int j = 0; j < size; j++) {
+  // std::cout « C[i * size + j] « " ";
+  // }
+  // cout « endl;
+  // }
+  // */
 
- // queen.SetTask("mul", "CPU", {8500, 8500}, {10000, 10000}, {block, block});
- // queen.SetTask("mul", "GPU", {0, 0}, {8500, 8500}, {block, block});
- // queen.SetTask("mul", "GPU", {0, 8500}, {8500, 10000}, {block, block});
- // queen.SetTask("mul", "GPU", {8500, 0}, {10000, 8500}, {block, block});
- //
- //
- // QueryPerformanceCounter(&t1);
- //
- // queen.Start();
- // queen.Wait();
- //// queen.Read();
- //
- // QueryPerformanceCounter(&t2);
- // time = (t2.QuadPart - t1.QuadPart) / double(frequency.QuadPart);
- //
- // cout << "The time: seconds\n" << time << endl;
- //
- // queen.Info("STAT");
- // /////////////////////////////////////////////
- //
- // /*
- // for (int i = 0; i < size; i++) {
- //   for (int j = 0; j < size; j++) {
- //  std::cout << C[i * size + j] << " ";
- //   }
- //     cout << endl;
- // }
- // */
- //
- // int error = 0;
- // for (unsigned int i = 0; i < size * size; i++) {
- //   if (C[i] != size * 2) {
- //     error++;
- //   }
- // }
- //
- // cout << "ERROR = " << error << endl;
+  int error = 0;
+  for (unsigned int i = 0; i < size * size; i++) {
+    if (C[i] != size * 2) {
+      error++;
+    }
+  }
 
-  delete[] A_1;
-  delete[] B_1;
-  delete[] C_1;
+  cout << "ERROR = " << error << endl;
 
-  delete[] A_2;
-  delete[] B_2;
-  delete[] C_2;
-
-  delete[] A_3;
-  delete[] B_3;
-  delete[] C_3;
+  delete[] A;
+  delete[] B;
+  delete[] C;
 
   delete[] a;
   delete[] b;
