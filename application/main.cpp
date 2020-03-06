@@ -24,11 +24,11 @@ void ReadFunct(float* out, float*in) {
 
 
 int main(void) {
-  MulMatrixOpt<float>(3200);
+//  MulMatrixOpt<float>(3200);
   //MulMatrix<float>(1600);
  //   SumVectors<float>(10000);
 // MonteCarlo(100000);
-	//Convolution(2125, 50, "ALL", 10);
+	Convolution(15000, 3, "GPU", 10);
   
   return 0;
 }
@@ -160,7 +160,7 @@ void MulMatrixOpt(unsigned int size) {
 
    queen.Start();
 
-  // queen.Info("TIME");
+   queen.Info("TIME");
 
  // queen.Test("mul", {size, size}, {block, block});
 

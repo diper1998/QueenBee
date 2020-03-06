@@ -513,10 +513,11 @@ int Keeper::Start() {
                    (h.name == tasks.back().parallel_method &&
                     h.event.getInfo<CL_EVENT_COMMAND_EXECUTION_STATUS>() ==
                         CL_COMPLETE))) {
-                if (h.time.size() != 0) {
+                if (h.time.size() != 0 && h.busy != false) {
                   QueryPerformanceCounter(&t2);
                   h.time.back() =
                       t2.QuadPart / double(frequency.QuadPart) - h.time.back();
+                  h.busy = false;
                 }
 
                 QueryPerformanceCounter(&t1);
@@ -532,16 +533,16 @@ int Keeper::Start() {
               }
             }
           } else {
-                             if (h.name == tasks.back().parallel_method) {
-           
-           					  for (auto& t : tasks) {
-                                 if (t.parallel_method != h.name) {
-                                   swap(t, tasks.back());
-                                   break;
-                                 }
-                               }
-           
-           				  }
+            if (tasks.size() != 0) {
+              if (h.name == tasks.back().parallel_method) {
+                for (auto& t : tasks) {
+                  if (t.parallel_method != h.name) {
+                    swap(t, tasks.back());
+                    break;
+                  }
+                }
+              }
+            }
           }
         }
       }
