@@ -643,21 +643,21 @@ int Keeper::Test(string function_id, vector<unsigned int> global_range,
 
     cout << endl;
 
-    cout << "Y:" << endl;
-    for (unsigned int i = 1; i < 100; i += 1) {
-      cout << 100 - i << "% CPU " << i << "% GPU: " << endl;
-
-      SetTask(function_id, "GPU", {0, 0},
-              {global_range[1], global_range[0] * i / 100}, local_range);
-
-      SetTask(function_id, "CPU", {0, global_range[0] * i / 100},
-              {global_range[0], global_range[1]}, local_range);
-
-      Start();
-      Info("TIME");
-      perfomance << i << "\t" << all_time << "\t" << work_time << endl;
-    }
-  }
+//    cout << "Y:" << endl;
+//    for (unsigned int i = 1; i < 100; i += 1) {
+//      cout << 100 - i << "% CPU " << i << "% GPU: " << endl;
+//
+//      SetTask(function_id, "GPU", {0, 0},
+//              {global_range[1], global_range[0] * i / 100}, local_range);
+//
+//      SetTask(function_id, "CPU", {0, global_range[0] * i / 100},
+//              {global_range[0], global_range[1]}, local_range);
+//
+//      Start();
+//      Info("TIME");
+//      perfomance << i << "\t" << all_time << "\t" << work_time << endl;
+//    }
+ }
   //===========================================================
   if (global_range.size() == 1) {
     cout << "100% CPU 0% GPU: " << endl;

@@ -73,7 +73,7 @@ void MulMatrixOpt(unsigned int size, string device) {
 
    queen.Info("TIME");
 
-  //queen.Test("mul", {size, size}, {block, block});
+ // queen.Test("mul", {size, size}, {block, block});
 
   // /*
   // for (int i = 0; i < size; i++) {
