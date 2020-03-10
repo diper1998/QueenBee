@@ -7,7 +7,7 @@ template <typename Type>
 void MulMatrix(unsigned int size);
 
 template <typename Type>
-void MulMatrixOpt(unsigned int size);
+void MulMatrixOpt(unsigned int size, string device);
 
 template <typename Type>
 void SumVectors(unsigned int size);
@@ -16,20 +16,19 @@ void MonteCarlo(unsigned int size);
 void Convolution(unsigned int size, unsigned int radius, string mode,
                  int peace);
 
-
-void ReadFunct(float* out, float*in) {
-  *out = *out + *in;
-  cout << out;
-}
-
+// void ReadFunct(float* out, float*in) {
+//  *out = *out + *in;
+//  cout << out;
+//}
 
 int main(void) {
-//  MulMatrixOpt<float>(3200);
-  //MulMatrix<float>(1600);
- //   SumVectors<float>(10000);
-// MonteCarlo(100000);
-	Convolution(15000, 3, "GPU", 10);
-  
+  MulMatrixOpt<float>(400,  "GPU");
+  MulMatrixOpt<float>(400,  "CPU");
+  // MulMatrix<float>(1600);
+  //   SumVectors<float>(10000);
+  // MonteCarlo(100000);
+  //	Convolution(15000, 3, "GPU", 10);
+
   return 0;
 }
 
@@ -62,44 +61,41 @@ void MulMatrix(unsigned int size) {
   MulMatrix.SetArgument<unsigned int>(ptr_size, {1}, false);
 
   queen.SetFunction(MulMatrix);
-  //queen.Test("mul", {size, size});
+  // queen.Test("mul", {size, size});
 
   // queen.Info("DEV");
 
   // queen.Test("mul", {size, size});
 
-//  queen.SetTasks("mul", "ALL", {size/10 , size/10}, {size, size});
-   queen.SetTask("mul", "GPU", {0, 0}, {size, size});
-    QueryPerformanceCounter(&t1);
+  //  queen.SetTasks("mul", "ALL", {size/10 , size/10}, {size, size});
+  queen.SetTask("mul", "GPU", {0, 0}, {size, size});
+  QueryPerformanceCounter(&t1);
 
   queen.Start();
-//  queen.Wait();
-//  void (*pt2Func)(Type*, Type*) = NULL;
-//  pt2Func = &ReadFunct;
-  //queen.Read<Type>((*pt2Func));
+  //  queen.Wait();
+  //  void (*pt2Func)(Type*, Type*) = NULL;
+  //  pt2Func = &ReadFunct;
+  // queen.Read<Type>((*pt2Func));
 
- 
-//  queen.Info("STAT");
+  //  queen.Info("STAT");
   queen.Info("TIME");
 
   /////////////////////////////////////////////
- 
-  
+
   for (int i = 0; i < size; i++) {
     for (int j = 0; j < size; j++) {
-  // std::cout << C[i * size + j] << " ";
+      // std::cout << C[i * size + j] << " ";
     }
     //  cout << endl;
   }
-  
- 
+
   int error = 0;
   for (unsigned int i = 0; i < size * size; i++) {
     if (C[i] != size * 2) {
       error++;
     }
   }
- 
+
   cout << "ERROR = " << error << endl;
 
   delete[] A;
@@ -108,7 +104,7 @@ void MulMatrix(unsigned int size) {
 }
 
 template <typename Type>
-void MulMatrixOpt(unsigned int size) {
+void MulMatrixOpt(unsigned int size,  string device) {
   Type* A = new Type[size * size];
   Type* B = new Type[size * size];
   Type* C = new Type[size * size];
@@ -141,28 +137,15 @@ void MulMatrixOpt(unsigned int size) {
   MulMatrixOpt.SetArgument<unsigned int*>(ptr_block, {1}, false);
   queen.SetFunction(MulMatrixOpt);
 
-   queen.SetTask("mul", "CPU", {size / 2, size / 2}, {size, size},{block,
-   block});
+  queen.SetTask("mul", device, {0, 0}, {size, size}, {block, block});
   
-   queen.SetTask("mul", "CPU", {size / 2, 0}, {size, size / 2}, {block,
-   block});
-  
-   queen.SetTask("mul", "CPU", {0, size / 2}, {size / 2, size}, {block,
-   block});
-  
-   queen.SetTask("mul", "CPU", {0, 0}, {size / 2, size / 2}, {block, block});
+  //queen.Info("ALL");
 
-  // queen.SetTask("mul", "CPU", {0, 0}, {size, size}, {block, block});
-  // queen.SetTask("mul", "CPU", {0, 0}, {size, size}, {block, block});
-  // queen.SetTask("mul", "CPU", {0, 0}, {size, size}, {block, block});
-  // queen.SetTask("mul", "CPU", {0, 0}, {size, size}, {block, block});
-  // queen.SetTask("mul", "CPU", {0, 0}, {size, size}, {block, block});
+  queen.Start();
 
-   queen.Start();
+  queen.Info("TIME");
 
-   queen.Info("TIME");
-
- // queen.Test("mul", {size, size}, {block, block});
+  // queen.Test("mul", {size, size}, {block, block});
 
   // /*
   // for (int i = 0; i < size; i++) {
@@ -220,33 +203,33 @@ void SumVectors(unsigned int size) {
 
   queen.Test("sum", {size});
 
-  //queen.SetTasks("sum", "ALL", {size / 10}, {size});
+  // queen.SetTasks("sum", "ALL", {size / 10}, {size});
   //
-  //QueryPerformanceCounter(&t1);
-  //queen.Start();
-  //queen.Wait();
-  //queen.Read();
-  //QueryPerformanceCounter(&t2);
-  //time = (t2.QuadPart - t1.QuadPart) / double(frequency.QuadPart);
+  // QueryPerformanceCounter(&t1);
+  // queen.Start();
+  // queen.Wait();
+  // queen.Read();
+  // QueryPerformanceCounter(&t2);
+  // time = (t2.QuadPart - t1.QuadPart) / double(frequency.QuadPart);
   //
-  //cout << "The time: seconds\n" << time << endl;
+  // cout << "The time: seconds\n" << time << endl;
   //
-  //queen.Info("STAT");
+  // queen.Info("STAT");
   ///////////////////////////////////////////////
   //
   ///*
-  //for (unsigned int i = 0; i < size; i++) {
+  // for (unsigned int i = 0; i < size; i++) {
   //  std::cout << C[i] << " ";
   //}
   //*/
   //
-  //int error = 0;
-  //for (unsigned int i = 0; i < size; i++) {
+  // int error = 0;
+  // for (unsigned int i = 0; i < size; i++) {
   //  if (C[i] != 3) {
   //    error++;
   //  }
   //}
-  //cout << "ERROR = " << error << endl;
+  // cout << "ERROR = " << error << endl;
 
   delete[] A;
   delete[] B;
@@ -276,42 +259,39 @@ void MonteCarlo(unsigned int size) {
 
   queen.SetFunction(MonteCarlo);
 
-//  queen.Info("STAT");
+  //  queen.Info("STAT");
 
   queen.Test("mc", {size});
 
- //  queen.SetTasks("mc", "ALL", {size / 10}, {size});
- //
- // QueryPerformanceCounter(&t1);
- //
- //  queen.Start();
- // queen.Wait();
- //  void (*pt2Func)(float*, float*) = NULL;
+  //  queen.SetTasks("mc", "ALL", {size / 10}, {size});
+  //
+  // QueryPerformanceCounter(&t1);
+  //
+  //  queen.Start();
+  // queen.Wait();
+  //  void (*pt2Func)(float*, float*) = NULL;
 
   // pt2Func = &ReadFunct;
- //  int sum = 0;
+  //  int sum = 0;
 
-//  queen.Read(*pt2Func);
+  //  queen.Read(*pt2Func);
 
- //
- // QueryPerformanceCounter(&t2);
- // time = (t2.QuadPart - t1.QuadPart) / double(frequency.QuadPart);
- //
- // cout << "The time: " << time << "seconds" << endl;
- //
- // queen.Info("STAT");
- // /////////////////////////////////////////////
- //
+  //
+  // QueryPerformanceCounter(&t2);
+  // time = (t2.QuadPart - t1.QuadPart) / double(frequency.QuadPart);
+  //
+  // cout << "The time: " << time << "seconds" << endl;
+  //
+  // queen.Info("STAT");
+  // /////////////////////////////////////////////
+  //
   double sum = 0;
   for (unsigned int i = 0; i < size; i++) {
-   sum += double(A[i]) / size;
+    sum += double(A[i]) / size;
   }
   double fraction_in_circle = sum / size,
-        pi = 3 * sqrt(3) / 2 + fraction_in_circle * 6.0 * (1.0 - sqrt(3) / 2);
+         pi = 3 * sqrt(3) / 2 + fraction_in_circle * 6.0 * (1.0 - sqrt(3) / 2);
   cout << "PI = " << pi << endl;
-
-
-
 
   delete[] A;
 }
@@ -355,36 +335,36 @@ void Convolution(unsigned int size, unsigned int radius, string mode,
 
   queen.Test("conv", {size, size});
 
-/*
+  /*
 
-  for (unsigned int i = 1000; i <= 10000; i+=1000) {
-    QueryPerformanceCounter(&t1);
-    queen.SetTask( "conv", "GPU", {0, 0}, {size, i} );
-    queen.SetTask("conv", "CPU", {0,  i}, {size, size});	
-	queen.Start();
-    queen.Wait();
-        cout << "CPU: " << size -  i << endl;
-		cout << "GPU: " <<  i << endl;
-	QueryPerformanceCounter(&t2);
-    time = (t2.QuadPart - t1.QuadPart) / double(frequency.QuadPart);
-        cout << time << endl;
+    for (unsigned int i = 1000; i <= 10000; i+=1000) {
+      QueryPerformanceCounter(&t1);
+      queen.SetTask( "conv", "GPU", {0, 0}, {size, i} );
+      queen.SetTask("conv", "CPU", {0,  i}, {size, size});
+          queen.Start();
+      queen.Wait();
+          cout << "CPU: " << size -  i << endl;
+                  cout << "GPU: " <<  i << endl;
+          QueryPerformanceCounter(&t2);
+      time = (t2.QuadPart - t1.QuadPart) / double(frequency.QuadPart);
+          cout << time << endl;
 
-  }
-  */
+    }
+    */
 
-//  queen.SetTasks("conv", mode, {size / peace, size / peace}, {size, size});
+  //  queen.SetTasks("conv", mode, {size / peace, size / peace}, {size, size});
 
-//  QueryPerformanceCounter(&t1);
+  //  QueryPerformanceCounter(&t1);
 
- // queen.Start();
-//  queen.Wait();
- // queen.Read();
- // queen.Info("STAT");
+  // queen.Start();
+  //  queen.Wait();
+  // queen.Read();
+  // queen.Info("STAT");
 
-  //QueryPerformanceCounter(&t2);
- // time = (t2.QuadPart - t1.QuadPart) / double(frequency.QuadPart);
+  // QueryPerformanceCounter(&t2);
+  // time = (t2.QuadPart - t1.QuadPart) / double(frequency.QuadPart);
 
- // cout << "The time: seconds\n" << time << endl;
+  // cout << "The time: seconds\n" << time << endl;
 
   /////////////////////////////////////////////
   /*
