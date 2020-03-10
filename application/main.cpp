@@ -1,4 +1,3 @@
-
 #include <windows.h>
 #include <thread>
 #include "QueenBee.hpp"
@@ -22,8 +21,8 @@ void Convolution(unsigned int size, unsigned int radius, string mode,
 //}
 
 int main(void) {
-  MulMatrixOpt<float>(400,  "GPU");
-  MulMatrixOpt<float>(400,  "CPU");
+  MulMatrixOpt<float>(1600,  "CPU");
+  MulMatrixOpt<float>(1600,  "GPU");
   // MulMatrix<float>(1600);
   //   SumVectors<float>(10000);
   // MonteCarlo(100000);
@@ -31,6 +30,77 @@ int main(void) {
 
   return 0;
 }
+
+template <typename Type>
+void MulMatrixOpt(unsigned int size, string device) {
+  Type* A = new Type[size * size];
+  Type* B = new Type[size * size];
+  Type* C = new Type[size * size];
+
+  unsigned int block = 16;
+
+  Type* a = NULL;
+  Type* b = NULL;
+
+  for (unsigned int i = 0; i < size * size; i++) {
+    A[i] = 1;
+    B[i] = 2;
+    C[i] = 0;
+  }
+
+  unsigned int* ptr_size = &size;
+
+  unsigned int* ptr_block = &block;
+
+  ///////////////////////////////////////////////
+  Keeper queen("kernel.txt");
+
+  Function MulMatrixOpt("mul", "MulMatrixOpt", true);
+  MulMatrixOpt.SetArgument<Type>(A, {size, size}, false);
+  MulMatrixOpt.SetArgument<Type>(B, {size, size}, false);
+  MulMatrixOpt.SetArgument<Type>(C, {size, size}, true);
+  MulMatrixOpt.SetArgument<unsigned int*>(ptr_size, {1}, false);
+  MulMatrixOpt.SetArgument<Type>(a, {block, block}, false);
+  MulMatrixOpt.SetArgument<Type>(b, {block, block}, false);
+  MulMatrixOpt.SetArgument<unsigned int*>(ptr_block, {1}, false);
+  queen.SetFunction(MulMatrixOpt);
+
+   queen.SetTask("mul", device, {0, 0}, {size, size}, {block, block});
+
+   queen.Info("DEV");
+
+   queen.Start();
+
+   queen.Info("TIME");
+
+  //queen.Test("mul", {size, size}, {block, block});
+
+  // /*
+  // for (int i = 0; i < size; i++) {
+  // for (int j = 0; j < size; j++) {
+  // std::cout « C[i * size + j] « " ";
+  // }
+  // cout « endl;
+  // }
+  // */
+
+  int error = 0;
+  for (unsigned int i = 0; i < size * size; i++) {
+    if (C[i] != size * 2) {
+      error++;
+    }
+  }
+
+  cout << "ERROR = " << error << endl;
+
+  delete[] A;
+  delete[] B;
+  delete[] C;
+
+  delete[] a;
+  delete[] b;
+}
+
 
 template <typename Type>
 void MulMatrix(unsigned int size) {
@@ -103,75 +173,7 @@ void MulMatrix(unsigned int size) {
   delete[] C;
 }
 
-template <typename Type>
-void MulMatrixOpt(unsigned int size,  string device) {
-  Type* A = new Type[size * size];
-  Type* B = new Type[size * size];
-  Type* C = new Type[size * size];
 
-  unsigned int block = 16;
-
-  Type* a = NULL;
-  Type* b = NULL;
-
-  for (unsigned int i = 0; i < size * size; i++) {
-    A[i] = 1;
-    B[i] = 2;
-    C[i] = 0;
-  }
-
-  unsigned int* ptr_size = &size;
-
-  unsigned int* ptr_block = &block;
-
-  ///////////////////////////////////////////////
-  Keeper queen("kernel.txt");
-
-  Function MulMatrixOpt("mul", "MulMatrixOpt", true);
-  MulMatrixOpt.SetArgument<Type>(A, {size, size}, false);
-  MulMatrixOpt.SetArgument<Type>(B, {size, size}, false);
-  MulMatrixOpt.SetArgument<Type>(C, {size, size}, true);
-  MulMatrixOpt.SetArgument<unsigned int*>(ptr_size, {1}, false);
-  MulMatrixOpt.SetArgument<Type>(a, {block, block}, false);
-  MulMatrixOpt.SetArgument<Type>(b, {block, block}, false);
-  MulMatrixOpt.SetArgument<unsigned int*>(ptr_block, {1}, false);
-  queen.SetFunction(MulMatrixOpt);
-
-  queen.SetTask("mul", device, {0, 0}, {size, size}, {block, block});
-  
-  //queen.Info("ALL");
-
-  queen.Start();
-
-  queen.Info("TIME");
-
-  // queen.Test("mul", {size, size}, {block, block});
-
-  // /*
-  // for (int i = 0; i < size; i++) {
-  // for (int j = 0; j < size; j++) {
-  // std::cout « C[i * size + j] « " ";
-  // }
-  // cout « endl;
-  // }
-  // */
-
-  int error = 0;
-  for (unsigned int i = 0; i < size * size; i++) {
-    if (C[i] != size * 2) {
-      error++;
-    }
-  }
-
-  cout << "ERROR = " << error << endl;
-
-  delete[] A;
-  delete[] B;
-  delete[] C;
-
-  delete[] a;
-  delete[] b;
-}
 
 template <typename Type>
 void SumVectors(unsigned int size) {

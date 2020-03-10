@@ -31,6 +31,9 @@ void Keeper::Info(string mode) {
              << d.getInfo<CL_DEVICE_NAME>() << endl;
       }
     }
+  }
+
+  if (mode == "ALL" || mode == "KER"){
     cout << endl << kernel << endl;
 
     for (const auto& g : gardens) {
