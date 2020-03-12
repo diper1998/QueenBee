@@ -22,7 +22,10 @@ void Convolution(unsigned int size, unsigned int radius, string mode,
 
 int main(void) {
   MulMatrixOpt<float>(1600,  "CPU");
-  MulMatrixOpt<float>(1600,  "GPU");
+  MulMatrixOpt<float>(3200, "CPU");
+
+
+ // MulMatrixOpt<float>(1600,  "GPU");
   // MulMatrix<float>(1600);
   //   SumVectors<float>(10000);
   // MonteCarlo(100000);
@@ -65,15 +68,15 @@ void MulMatrixOpt(unsigned int size, string device) {
   MulMatrixOpt.SetArgument<unsigned int*>(ptr_block, {1}, false);
   queen.SetFunction(MulMatrixOpt);
 
-   queen.SetTask("mul", device, {0, 0}, {size, size}, {block, block});
+   //queen.SetTask("mul", device, {0, 0}, {size, size}, {block, block});
 
    queen.Info("DEV");
 
-   queen.Start();
+   //queen.Start();
 
-   queen.Info("TIME");
+  // queen.Info("TIME");
 
- // queen.Test("mul", {size, size}, {block, block});
+  queen.Test("mul", {size, size}, {block, block});
 
   // /*
   // for (int i = 0; i < size; i++) {

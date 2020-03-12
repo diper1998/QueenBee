@@ -593,8 +593,19 @@ int Keeper::Start() {
 
 int Keeper::Test(string function_id, vector<unsigned int> global_range,
                  vector<unsigned int> local_range) {
-  std::ofstream perfomance;
-  perfomance.open("performance.txt");
+  std::ofstream perfomance_static;
+  std::ofstream perfomance_dynamic;
+  std::stringstream ss;
+
+  if (global_range.size() == 1) ss << global_range[0];
+
+  if (global_range.size() == 2) ss << global_range[0] << "x" << global_range[1];
+
+  std::string str;
+  ss >> str;
+  perfomance_static.open(string("performance_static_") + function_id+str + string(".txt"));
+  perfomance_dynamic.open(string("performance_dynamic_") + function_id + str +
+                         string(".txt"));
 
   if (global_range.size() == 2) {
     cout << "100% CPU 0% GPU: " << endl;
@@ -602,7 +613,7 @@ int Keeper::Test(string function_id, vector<unsigned int> global_range,
     Start();
     Info("TIME");
 
-    perfomance << "0\t" << all_time << "\t" << work_time << endl;
+    perfomance_static << "0\t" << all_time << "\t" << work_time << endl;
 
     //========
 
@@ -615,6 +626,7 @@ int Keeper::Test(string function_id, vector<unsigned int> global_range,
 
       Start();
       Info("TIME");
+      perfomance_dynamic << i << "\t" << all_time << "\t" << work_time << endl;
     }
 
     cout << endl;
@@ -630,7 +642,7 @@ int Keeper::Test(string function_id, vector<unsigned int> global_range,
 
       Start();
       Info("TIME");
-      perfomance << i << "\t" << all_time << "\t" << work_time << endl;
+      perfomance_static << i << "\t" << all_time << "\t" << work_time << endl;
     }
 
     //=====
@@ -639,7 +651,7 @@ int Keeper::Test(string function_id, vector<unsigned int> global_range,
     Start();
     Info("TIME");
 
-    perfomance << "100\t" << all_time << "\t" << work_time << endl;
+    perfomance_static << "100\t" << all_time << "\t" << work_time << endl;
 
     cout << endl;
 
@@ -664,7 +676,7 @@ int Keeper::Test(string function_id, vector<unsigned int> global_range,
     SetTask(function_id, "CPU", {0}, global_range, local_range);
     Start();
     Info("TIME");
-    perfomance << "0\t" << all_time << "\t" << work_time << endl;
+    perfomance_static << "0\t" << all_time << "\t" << work_time << endl;
     //=====
 
     cout << endl;
@@ -689,7 +701,7 @@ int Keeper::Test(string function_id, vector<unsigned int> global_range,
               {global_range[0]}, local_range);
 
       Start();
-      perfomance << i << "\t" << all_time << "\t" << work_time << endl;
+      perfomance_static << i << "\t" << all_time << "\t" << work_time << endl;
       Info("TIME");
     }
 
@@ -697,12 +709,13 @@ int Keeper::Test(string function_id, vector<unsigned int> global_range,
     SetTask(function_id, "GPU", {0}, global_range, local_range);
     Start();
     Info("TIME");
-    perfomance << "100\t" << all_time << "\t" << work_time << endl;
+    perfomance_static << "100\t" << all_time << "\t" << work_time << endl;
     //========
 
     cout << endl;
   }
-  perfomance.close();
+  perfomance_static.close();
+  perfomance_dynamic.close();
   return 0;
 }
 

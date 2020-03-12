@@ -8,10 +8,11 @@
 #endif
 #include <windows.h>
 #include <fstream>
-#include <future>
+//#include <future>
 #include <iostream>
-#include <thread>
+//#include <thread>
 #include <vector>
+#include <sstream>
 
 using namespace std;
 using namespace cl;
