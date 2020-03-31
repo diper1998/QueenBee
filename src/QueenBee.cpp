@@ -1,19 +1,19 @@
 #include "..\include\QueenBee.hpp"
 
-int Keeper::Wait() {
-  while (tasks.size() != 0) {
-  }
-  for (auto& g : gardens) {
-    for (auto& h : g.hives) {
-      h.command.finish();
-      while (h.event.getInfo<CL_EVENT_COMMAND_EXECUTION_STATUS>() !=
-             CL_COMPLETE) {
-      }
-    }
-  }
-
-  return 0;
-}
+// int Keeper::Wait() {
+//  while (tasks.size() != 0) {
+//  }
+//  for (auto& g : gardens) {
+//    for (auto& h : g.hives) {
+//      h.command.finish();
+//      while (h.event.getInfo<CL_EVENT_COMMAND_EXECUTION_STATUS>() !=
+//             CL_COMPLETE) {
+//      }
+//    }
+//  }
+//
+//  return 0;
+//}
 
 Keeper::Keeper(string kernel_file_name) {
   SetGardens();
@@ -33,7 +33,7 @@ void Keeper::Info(string mode) {
     }
   }
 
-  if (mode == "ALL" || mode == "KER"){
+  if (mode == "ALL" || mode == "KER") {
     cout << endl << kernel << endl;
 
     for (const auto& g : gardens) {
@@ -41,14 +41,6 @@ void Keeper::Info(string mode) {
         cout << endl
              << h.program.getBuildInfo<CL_PROGRAM_BUILD_LOG>(h.device.back())
              << endl;
-      }
-    }
-  }
-
-  if (mode == "ALL" || mode == "STAT") {
-    for (auto& g : gardens) {
-      for (auto& h : g.hives) {
-        cout << h.name + ":" << h.completed.size() << endl;
       }
     }
   }
@@ -66,6 +58,12 @@ void Keeper::Info(string mode) {
           i++;
           h.work_time += t;
         }
+
+        // for (auto& t1 : h.time1) {
+        //  cout  << "ch: " << t1 << endl;
+        //  //i++;
+        //  //h.work_time += t;
+        //}
       }
     }
 
@@ -76,8 +74,6 @@ void Keeper::Info(string mode) {
     }
 
     cout << "ALL time: " << all_time << endl;
-    cout << "WORK time: " << work_time << endl;
-    cout << "READ time: " << read_time << endl;
   }
 
   cout << endl;
@@ -146,8 +142,8 @@ int Keeper::Build() {
     Program program(context, source);
     g.program = program;
     for (auto& d : g.devices) {
-      //CommandQueue command(g.context, d, CL_QUEUE_PROFILING_ENABLE);
-      CommandQueue command(g.context, d);
+      CommandQueue command(g.context, d, CL_QUEUE_PROFILING_ENABLE);
+      // CommandQueue command(g.context, d);
 
       Hive hive(d, command, context, program, d.getInfo<CL_DEVICE_NAME>(),
                 d.getInfo<CL_DEVICE_TYPE>());
@@ -199,11 +195,11 @@ int Keeper::SetFunction(Function& function) {
     for (auto& a : function.arguments) {
       if (a.pointer != NULL) {
         // Buffer buff(h.context, CL_MEM_READ_WRITE, a.size);
-        Buffer buff(g.context, CL_MEM_READ_WRITE, a.size);
+        Buffer buff(g.context, CL_MEM_USE_HOST_PTR, a.size, a.pointer);
         a.buffer = buff;
         // function.Write(h.command, a.buffer, CL_TRUE, 0, a.size, a.pointer);
-        function.Write(g.hives[0].command, a.buffer, CL_TRUE, 0, a.size,
-                       a.pointer);
+        // function.Write(g.hives[0].command, a.buffer, CL_TRUE, 0, a.size,
+        //                a.pointer);
         function.kernel.setArg(i, a.buffer);
       } else {
         function.kernel.setArg(i, a.size, a.pointer);
@@ -213,7 +209,16 @@ int Keeper::SetFunction(Function& function) {
 
     // h.functions.push_back(function);
     g.functions.push_back(function);
+
     //}
+  }
+
+  for (auto& g : gardens) {
+    for (auto& h : g.hives) {
+      for (auto& f : g.functions) {
+        h.functions_ptrs.push_back(&f);
+      }
+    }
   }
 
   return 1;
@@ -293,57 +298,131 @@ int Keeper::SetTasks(string function_id, string parallel_method,
   return 0;
 }
 
-int Keeper::Read() {
+// int Keeper::Read() {
+//  for (auto& g : gardens) {
+//    for (auto& hive : g.hives) {
+//      for (auto& f : g.functions) {
+//        for (auto& task : hive.completed) {
+//          if (task.function_id == f.id) {
+//            for (auto& a : f.arguments) {
+//              if (a.change) {
+//                if (a.type == "float") {
+//                  Read<float>(hive, a, task, a.pointer);
+//                  continue;
+//                }
+//                if (a.type == "double") {
+//                  Read<double>(hive, a, task, a.pointer);
+//                  continue;
+//                }
+//                if (a.type == "int") {
+//                  Read<int>(hive, a, task, a.pointer);
+//                  continue;
+//                }
+//                if (a.type == "unsigned int") {
+//                  Read<unsigned int>(hive, a, task, a.pointer);
+//                  continue;
+//                }
+//                if (a.type == "short") {
+//                  Read<short>(hive, a, task, a.pointer);
+//                  continue;
+//                }
+//                if (a.type == "bool") {
+//                  Read<bool>(hive, a, task, a.pointer);
+//                  continue;
+//                }
+//                if (a.type == "char") {
+//                  Read<char>(hive, a, task, a.pointer);
+//                  continue;
+//                }
+//              }
+//            }
+//          }
+//          //}
+//        }
+//      }
+//    }
+//  }
+//
+//  Wait();
+//
+//  return 1;
+//}
+
+void Keeper::ThreadFunction(Hive& h) {
+  cl_ulong time_end, time_start;
+  for (auto& t : h.tasks) {
+    for (auto& f : h.functions_ptrs) {
+      h.time.push_back(0);
+
+      if (f->id == t.function_id) {
+        int status =
+            h.command.enqueueNDRangeKernel(f->kernel, GetRange(t.offsets),
+                                           GetGlobalRange(t.globals, t.offsets),
+                                           GetRange(t.locals), NULL, &h.event);
+
+        h.event.wait();
+
+        h.event.getProfilingInfo(CL_PROFILING_COMMAND_START, &time_start);
+        h.event.getProfilingInfo(CL_PROFILING_COMMAND_END, &time_end);
+
+        h.time.back() = double(time_end - time_start) / 1000000000;
+      }
+    }
+  }
+}
+
+int Keeper::Start() {
+  LARGE_INTEGER at_begin;
+  LARGE_INTEGER at_end;
+
+  LARGE_INTEGER frequency;
+  QueryPerformanceFrequency(&frequency);
+
+  QueryPerformanceCounter(&at_begin);
+
   for (auto& g : gardens) {
-    for (auto& hive : g.hives) {
-      for (auto& f : g.functions) {
-        for (auto& task : hive.completed) {
-          if (task.function_id == f.id) {
-            for (auto& a : f.arguments) {
-              if (a.change) {
-                if (a.type == "float") {
-                  Read<float>(hive, a, task, a.pointer);
-                  continue;
-                }
-                if (a.type == "double") {
-                  Read<double>(hive, a, task, a.pointer);
-                  continue;
-                }
-                if (a.type == "int") {
-                  Read<int>(hive, a, task, a.pointer);
-                  continue;
-                }
-                if (a.type == "unsigned int") {
-                  Read<unsigned int>(hive, a, task, a.pointer);
-                  continue;
-                }
-                if (a.type == "short") {
-                  Read<short>(hive, a, task, a.pointer);
-                  continue;
-                }
-                if (a.type == "bool") {
-                  Read<bool>(hive, a, task, a.pointer);
-                  continue;
-                }
-                if (a.type == "char") {
-                  Read<char>(hive, a, task, a.pointer);
-                  continue;
-                }
-              }
-            }
-          }
-          //}
+    for (auto& h : g.hives) {
+      h.time.clear();
+      h.tasks.clear();
+    }
+  }
+
+  for (auto& g : gardens) {
+    for (auto& h : g.hives) {
+      for (auto& t : tasks) {
+        if (t.parallel_method == h.name) {
+          h.tasks.push_back(t);
         }
       }
     }
   }
 
-  Wait();
+  for (auto& g : gardens) {
+    for (auto& h : g.hives) {
+      if (h.tasks.size() != 0) {
+        std::thread* thr =
+            new thread(&Keeper::ThreadFunction, this, std::ref(h));
+
+        threads.push_back(thr);
+      }
+    }
+  }
+
+  for (auto& t : threads) {
+    t->join();
+  }
+
+  tasks.clear();
+  threads.clear();
+
+  QueryPerformanceCounter(&at_end);
+
+  all_time = (at_end.QuadPart - at_begin.QuadPart) / double(frequency.QuadPart);
 
   return 1;
 }
 
-//int Keeper::Start() {
+// int Keeper::Start() {
 //  cl_ulong time_end, time_start;
 //
 //  LARGE_INTEGER wt1;
@@ -354,7 +433,6 @@ int Keeper::Read() {
 //
 //  QueryPerformanceCounter(&at1);
 //  QueryPerformanceCounter(&wt1);
-//  
 //
 //  for (auto& g : gardens) {
 //    for (auto& h : g.hives) {
@@ -370,8 +448,6 @@ int Keeper::Read() {
 //  while (tasks.size() != 0) {
 //    for (auto& g : gardens) {
 //      for (auto& h : g.hives) {
-//
-//
 //        if (tasks.size() != 0) {
 //          for (auto& f : g.functions) {
 //            if (tasks.size() != 0 && f.id == tasks.back().function_id) {
@@ -391,7 +467,8 @@ int Keeper::Read() {
 //                    h.event.getProfilingInfo(CL_PROFILING_COMMAND_END,
 //                                             &time_end);
 //
-//                    h.time.back() = double(time_end - time_start) / 1000000000;
+//                    h.time.back() = double(time_end - time_start) /
+//                    1000000000;
 //                  }
 //
 //                  h.time.push_back(0);
@@ -402,26 +479,22 @@ int Keeper::Read() {
 //                                     tasks.back().offsets),
 //                      GetRange(tasks.back().locals), NULL, &h.event);
 //
+//                  // h.command.finish();
+//
 //                  h.completed.push_back(tasks.back());
 //                  if (tasks.size() != 0) tasks.pop_back();
 //
-//
 //                  break;
-//                } 
-//				else {
-//					
+//                } else {
 //                  if (h.name == tasks.back().parallel_method) {
-//                    
-//					  for (auto& t : tasks) {
+//                    for (auto& t : tasks) {
 //                      if (t.parallel_method != h.name) {
 //                        swap(t, tasks.back());
 //                        break;
 //                      }
 //                    }
-//
-//				  }
-//				
-//				}
+//                  }
+//                }
 //              }
 //            }
 //          }
@@ -430,25 +503,17 @@ int Keeper::Read() {
 //    }
 //  }
 //
+//  for (auto& g : gardens) {
+//    for (auto& h : g.hives) {
+//      h.event.wait();
+//      if (h.time.size() != 0) {
+//        h.event.getProfilingInfo(CL_PROFILING_COMMAND_START, &time_start);
+//        h.event.getProfilingInfo(CL_PROFILING_COMMAND_END, &time_end);
 //
-//
-//
-//
-// //for (auto& g : gardens) {
-// //   for (auto& h : g.hives) {
-// //     
-////		h.event.wait();
-// //     if (h.time.size() != 0) {
-// //       h.event.getProfilingInfo(CL_PROFILING_COMMAND_START, &time_start);
-// //       h.event.getProfilingInfo(CL_PROFILING_COMMAND_END, &time_end);
-// //
-// //      h.time.back() = double(time_end - time_start) / 1000000000;
-// //     }
-// //   }
-// // }
-//
-//
-//
+//        h.time.back() = double(time_end - time_start) / 1000000000;
+//      }
+//    }
+//  }
 //
 //  QueryPerformanceCounter(&wt2);
 //
@@ -456,7 +521,7 @@ int Keeper::Read() {
 //  LARGE_INTEGER rt2;
 //
 //  QueryPerformanceCounter(&rt1);
-//  Read();
+//  // Read();
 //
 //  QueryPerformanceCounter(&rt2);
 //
@@ -471,127 +536,164 @@ int Keeper::Read() {
 //  return 1;
 //}
 
+// int Keeper::Start() {
+//
+//	cl_ulong time_end, time_start;
+//  LARGE_INTEGER wt1;
+//  LARGE_INTEGER wt2;
+//  LARGE_INTEGER at1;
+//  LARGE_INTEGER at2;
+//  QueryPerformanceCounter(&wt1);
+//  QueryPerformanceCounter(&at1);
+//  for (auto& g : gardens) {
+//    for (auto& h : g.hives) {
+//      h.completed.clear();
+//      h.time.clear();
+//      h.time1.clear();
+//      h.done = false;
+//      h.busy = false;
+//      h.busy1 = false;
+//    }
+//  }
+//  LARGE_INTEGER frequency;
+//  LARGE_INTEGER t2;
+//  LARGE_INTEGER t1;
+//  QueryPerformanceFrequency(&frequency);
+//  while (tasks.size() != 0) {
+//    for (auto& g : gardens) {
+//      for (auto& h : g.hives) {
+//        h.command.flush();
+//        if (h.time.size() != 0 &&
+//            h.event.getInfo<CL_EVENT_COMMAND_EXECUTION_STATUS>() ==
+//                CL_COMPLETE &&
+//            h.busy == true) {
+//          QueryPerformanceCounter(&t2);
+//          h.time.back() =
+//              t2.QuadPart / double(frequency.QuadPart) - h.time.back();
+//          h.busy = false;
+//        }
+//
+//        for (auto& f : g.functions) {
+//          if (tasks.size() != 0 && f.id == tasks.back().function_id) {
+//            if (tasks.size() != 0) {
+//              h.command.flush();
+//              if (((tasks.back().parallel_method == "ALL" &&
+//                    h.event.getInfo<CL_EVENT_COMMAND_EXECUTION_STATUS>() ==
+//                        CL_COMPLETE) ||
+//                   (h.name == tasks.back().parallel_method &&
+//                    h.event.getInfo<CL_EVENT_COMMAND_EXECUTION_STATUS>() ==
+//                        CL_COMPLETE))) {
+//                if (h.time.size() != 0 && h.busy != false) {
+//                  QueryPerformanceCounter(&t2);
+//                  h.time.back() =
+//                      t2.QuadPart / double(frequency.QuadPart) -
+//                      h.time.back();
+//                  h.busy = false;
+//                }
+//
+//
+//				if (h.time1.size() != 0 && h.busy1 == true) {
+//                                      h.busy1 = false;
+//
+//                                      h.event.getProfilingInfo(CL_PROFILING_COMMAND_START,
+//                                                               &time_start);
+//                                      h.event.getProfilingInfo(CL_PROFILING_COMMAND_END,
+//                                                               &time_end);
+//
+//                                      h.time1.back() = double(time_end -
+//                                      time_start) / 1000000000;
+//                                    }
+//
+//                                    h.time1.push_back(0);
+//
+//
+//                QueryPerformanceCounter(&t1);
+//                h.time.push_back(t1.QuadPart / double(frequency.QuadPart));
+//                h.busy = true;
+//                int status = h.command.enqueueNDRangeKernel(
+//                    f.kernel, GetRange(tasks.back().offsets),
+//                    GetGlobalRange(tasks.back().globals,
+//                    tasks.back().offsets), GetRange(tasks.back().locals),
+//                    NULL, &h.event);
+//                h.completed.push_back(tasks.back());
+//                if (tasks.size() != 0) tasks.pop_back();
+//                break;
+//              }
+//            }
+//          } else {
+//            if (tasks.size() != 0) {
+//              if (h.name == tasks.back().parallel_method) {
+//                for (auto& t : tasks) {
+//                  if (t.parallel_method != h.name) {
+//                    swap(t, tasks.back());
+//                    break;
+//                  }
+//                }
+//              }
+//            }
+//
+//
+//          }
+//        }
+//
+//      }
+//    }
+//  }
+//
+//
+//   for (auto& g : gardens) {
+//     for (auto& h : g.hives) {
+//
+//  		h.event.wait();
+//       if (h.time1.size() != 0) {
+//         h.event.getProfilingInfo(CL_PROFILING_COMMAND_START, &time_start);
+//         h.event.getProfilingInfo(CL_PROFILING_COMMAND_END, &time_end);
+//
+//        h.time1.back() = double(time_end - time_start) / 1000000000;
+//       }
+//     }
+//   }
+//
+//
+//  int index = 0;
+//  int count = 0;
+//  for (auto& g : gardens) {
+//    index += g.hives.size();
+//    count += g.hives.size();
+//  }
+//  while (index != 0) {
+//    for (auto& g : gardens) {
+//      for (auto& h : g.hives) {
+//        h.command.flush();
+//        if (h.event.getInfo<CL_EVENT_COMMAND_EXECUTION_STATUS>() ==
+//                CL_COMPLETE &&
+//            h.done != true) {
+//          index--;
+//          h.done = true;
+//          if (h.time.size() != 0) {
+//            QueryPerformanceCounter(&t2);
+//            h.time.back() =
+//                t2.QuadPart / double(frequency.QuadPart) - h.time.back();
+//          }
+//        }
+//      }
+//    }
+//  }
+//  QueryPerformanceCounter(&wt2);
+//  LARGE_INTEGER rt1;
+//  LARGE_INTEGER rt2;
+//  QueryPerformanceCounter(&rt1);
+// // Read();
+//  QueryPerformanceCounter(&at2);
+//  QueryPerformanceCounter(&rt2);
+//  work_time = (wt2.QuadPart - wt1.QuadPart) / double(frequency.QuadPart);
+//  read_time = (rt2.QuadPart - rt1.QuadPart) / double(frequency.QuadPart);
+//  all_time = (at2.QuadPart - at1.QuadPart) / double(frequency.QuadPart);
+//  return 1;
+//}
 
-
-int Keeper::Start() {
-  LARGE_INTEGER wt1;
-  LARGE_INTEGER wt2;
-  LARGE_INTEGER at1;
-  LARGE_INTEGER at2;
-  QueryPerformanceCounter(&wt1);
-  QueryPerformanceCounter(&at1);
-  for (auto& g : gardens) {
-    for (auto& h : g.hives) {
-      h.completed.clear();
-      h.time.clear();
-      h.done = false;
-      h.busy = false;
-    }
-  }
-  LARGE_INTEGER frequency;
-  LARGE_INTEGER t2;
-  LARGE_INTEGER t1;
-  QueryPerformanceFrequency(&frequency);
-  while (tasks.size() != 0) {
-    for (auto& g : gardens) {
-      for (auto& h : g.hives) {
-        h.command.flush();
-        if (h.time.size() != 0 &&
-            h.event.getInfo<CL_EVENT_COMMAND_EXECUTION_STATUS>() ==
-                CL_COMPLETE &&
-            h.busy == true) {
-          QueryPerformanceCounter(&t2);
-          h.time.back() =
-              t2.QuadPart / double(frequency.QuadPart) - h.time.back();
-          h.busy = false;
-        }
-
-        for (auto& f : g.functions) {
-          if (tasks.size() != 0 && f.id == tasks.back().function_id) {
-            if (tasks.size() != 0) {
-              h.command.flush();
-              if (((tasks.back().parallel_method == "ALL" &&
-                    h.event.getInfo<CL_EVENT_COMMAND_EXECUTION_STATUS>() ==
-                        CL_COMPLETE) ||
-                   (h.name == tasks.back().parallel_method &&
-                    h.event.getInfo<CL_EVENT_COMMAND_EXECUTION_STATUS>() ==
-                        CL_COMPLETE))) {
-                if (h.time.size() != 0 && h.busy != false) {
-                  QueryPerformanceCounter(&t2);
-                  h.time.back() =
-                      t2.QuadPart / double(frequency.QuadPart) - h.time.back();
-                  h.busy = false;
-                }
-
-                QueryPerformanceCounter(&t1);
-                h.time.push_back(t1.QuadPart / double(frequency.QuadPart));
-                h.busy = true;
-                int status = h.command.enqueueNDRangeKernel(
-                    f.kernel, GetRange(tasks.back().offsets),
-                    GetGlobalRange(tasks.back().globals, tasks.back().offsets),
-                    GetRange(tasks.back().locals), NULL, &h.event);
-                h.completed.push_back(tasks.back());
-                if (tasks.size() != 0) tasks.pop_back();
-                break;
-              }
-            }
-          } else {
-            if (tasks.size() != 0) {
-              if (h.name == tasks.back().parallel_method) {
-                for (auto& t : tasks) {
-                  if (t.parallel_method != h.name) {
-                    swap(t, tasks.back());
-                    break;
-                  }
-                }
-              }
-            }
-          }
-        }
-      }
-    }
-  }
-
-  int index = 0;
-  int count = 0;
-  for (auto& g : gardens) {
-    index += g.hives.size();
-    count += g.hives.size();
-  }
-  while (index != 0) {
-    for (auto& g : gardens) {
-      for (auto& h : g.hives) {
-        h.command.flush();
-        if (h.event.getInfo<CL_EVENT_COMMAND_EXECUTION_STATUS>() ==
-                CL_COMPLETE &&
-            h.done != true) {
-          index--;
-          h.done = true;
-          if (h.time.size() != 0) {
-            QueryPerformanceCounter(&t2);
-            h.time.back() =
-                t2.QuadPart / double(frequency.QuadPart) - h.time.back();
-          }
-        }
-      }
-    }
-  }
-  QueryPerformanceCounter(&wt2);
-  LARGE_INTEGER rt1;
-  LARGE_INTEGER rt2;
-  QueryPerformanceCounter(&rt1);
-  Read();
-  QueryPerformanceCounter(&at2);
-  QueryPerformanceCounter(&rt2);
-  work_time = (wt2.QuadPart - wt1.QuadPart) / double(frequency.QuadPart);
-  read_time = (rt2.QuadPart - rt1.QuadPart) / double(frequency.QuadPart);
-  all_time = (at2.QuadPart - at1.QuadPart) / double(frequency.QuadPart);
-  return 1;
-}
-
-
-
-int Keeper::Test(string function_id, vector<unsigned int> global_range,
+int Keeper::Test(string function_id, int step,
+                 vector<unsigned int> global_range,
                  vector<unsigned int> local_range) {
   std::ofstream perfomance_static;
   std::ofstream perfomance_dynamic;
@@ -603,36 +705,45 @@ int Keeper::Test(string function_id, vector<unsigned int> global_range,
 
   std::string str;
   ss >> str;
-  perfomance_static.open(string("performance_static_") + function_id+str + string(".txt"));
-  perfomance_dynamic.open(string("performance_dynamic_") + function_id + str +
+  perfomance_static.open(string("performance_static_") + function_id + str +
                          string(".txt"));
+  perfomance_dynamic.open(string("performance_dynamic_") + function_id + str +
+                          string(".txt"));
+
+  vector<double> time_x;
+  vector<double> time_y;
 
   if (global_range.size() == 2) {
+    cout << "________________" << endl;
     cout << "100% CPU 0% GPU: " << endl;
     SetTask(function_id, "CPU", {0, 0}, global_range, local_range);
     Start();
     Info("TIME");
 
-    perfomance_static << "0\t" << all_time << "\t" << work_time << endl;
+    perfomance_static << "0\t" << all_time << endl;
+
+    time_x.push_back(all_time);
 
     //========
 
     cout << endl;
-    for (int i = 10; i <= 50; i += 10) {
-      cout << "ALL " << i << "% : " << endl;
-      SetTasks(function_id, "ALL",
-               {global_range[0] * i / 100, global_range[1] * i / 100},
-               global_range, local_range);
-
-      Start();
-      Info("TIME");
-      perfomance_dynamic << i << "\t" << all_time << "\t" << work_time << endl;
-    }
+    // for (int i = 10; i <= 50; i += 10) {
+    //   cout << "ALL " << i << "% : " << endl;
+    //   SetTasks(function_id, "ALL",
+    //            {global_range[0] * i / 100, global_range[1] * i / 100},
+    //            global_range, local_range);
+    //
+    //   Start();
+    //   Info("TIME");
+    //   perfomance_dynamic << i << "\t" << all_time << "\t" << work_time <<
+    //   endl;
+    // }
 
     cout << endl;
 
     cout << "X:" << endl;
-    for (unsigned int i = 1; i < 100; i += 1) {
+    for (unsigned int i = step; i < 100; i += step) {
+      cout << "________________" << endl;
       cout << 100 - i << "% CPU " << i << "% GPU: " << endl;
       SetTask(function_id, "GPU", {0, 0},
               {global_range[0] * i / 100, global_range[1]}, local_range);
@@ -642,57 +753,109 @@ int Keeper::Test(string function_id, vector<unsigned int> global_range,
 
       Start();
       Info("TIME");
-      perfomance_static << i << "\t" << all_time << "\t" << work_time << endl;
+      perfomance_static << i << "\t" << all_time << endl;
+      time_x.push_back(all_time);
     }
 
     //=====
+    cout << "________________" << endl;
     cout << "0% CPU 100% GPU: " << endl;
     SetTask(function_id, "GPU", {0, 0}, global_range, local_range);
     Start();
     Info("TIME");
 
-    perfomance_static << "100\t" << all_time << "\t" << work_time << endl;
-
+    perfomance_static << "100\t" << all_time << endl;
+    time_x.push_back(all_time);
     cout << endl;
 
-//    cout << "Y:" << endl;
-//    for (unsigned int i = 1; i < 100; i += 1) {
-//      cout << 100 - i << "% CPU " << i << "% GPU: " << endl;
-//
-//      SetTask(function_id, "GPU", {0, 0},
-//              {global_range[1], global_range[0] * i / 100}, local_range);
-//
-//      SetTask(function_id, "CPU", {0, global_range[0] * i / 100},
-//              {global_range[0], global_range[1]}, local_range);
-//
-//      Start();
-//      Info("TIME");
-//      perfomance << i << "\t" << all_time << "\t" << work_time << endl;
-//    }
- }
+    cout << "________________" << endl;
+    cout << "100% CPU 0% GPU: " << endl;
+    SetTask(function_id, "CPU", {0, 0}, global_range, local_range);
+    Start();
+    Info("TIME");
+    time_y.push_back(all_time);
+    perfomance_static << "0\t" << all_time << endl;
+
+    cout << "Y:" << endl;
+    for (unsigned int i = step; i < 100; i += step) {
+      cout << "________________" << endl;
+      cout << 100 - i << "% CPU " << i << "% GPU: " << endl;
+
+      SetTask(function_id, "GPU", {0, 0},
+              {global_range[1], global_range[0] * i / 100}, local_range);
+
+      SetTask(function_id, "CPU", {0, global_range[0] * i / 100},
+              {global_range[0], global_range[1]}, local_range);
+
+      Start();
+      Info("TIME");
+      perfomance_static << i << "\t" << all_time << "\t" << endl;
+      time_y.push_back(all_time);
+    }
+
+    cout << "________________" << endl;
+    cout << "0% CPU 100% GPU: " << endl;
+    SetTask(function_id, "GPU", {0, 0}, global_range, local_range);
+    Start();
+    Info("TIME");
+
+    perfomance_static << "100\t" << all_time << endl;
+    time_y.push_back(all_time);
+    cout << endl;
+
+    int idx_min = 0;
+    int idy_min = 0;
+    for (int i = 0; i < time_x.size(); i++) {
+      if (time_x[idx_min] > time_x[i]) idx_min = i;
+    }
+
+    for (int i = 0; i < time_y.size(); i++) {
+      if (time_x[idy_min] > time_x[i]) idy_min = i;
+    }
+
+    cout << "THE BEST :";
+    if (time_x[idx_min] < time_y[idy_min]) {
+        cout << "X: " << endl;
+        cout << 100 - idx_min * step << "% CPU " << idx_min * step
+             << "% GPU: " << endl;
+        cout << "ALL_TIME: " << time_x[idx_min] << endl;
+      } else {
+
+		 cout << "Y: " << endl;
+        cout << 100 - idy_min * step << "% CPU " << idy_min * step
+             << "% GPU: " << endl;
+        cout << "ALL_TIME: " << time_y[idy_min] << endl;
+
+    }
+
+	cout  << endl;
+  }
   //===========================================================
   if (global_range.size() == 1) {
+    cout << "________________" << endl;
     cout << "100% CPU 0% GPU: " << endl;
     SetTask(function_id, "CPU", {0}, global_range, local_range);
     Start();
     Info("TIME");
-    perfomance_static << "0\t" << all_time << "\t" << work_time << endl;
+    time_x.push_back(all_time);
+    perfomance_static << "0\t" << all_time << endl;
     //=====
 
     cout << endl;
-    for (int i = 10; i <= 50; i += 10) {
-      cout << "ALL " << i << "% : " << endl;
-
-      SetTasks(function_id, "ALL", {global_range[0] * i / 100}, global_range,
-               local_range);
-      Start();
-      Info("TIME");
-    }
+    // for (int i = 10; i <= 50; i += 10) {
+    //   cout << "ALL " << i << "% : " << endl;
+    //
+    //   SetTasks(function_id, "ALL", {global_range[0] * i / 100}, global_range,
+    //            local_range);
+    //   Start();
+    //   Info("TIME");
+    // }
 
     cout << endl;
 
     cout << "X:" << endl;
-    for (unsigned int i = 1; i < 100; i += 1) {
+    for (unsigned int i = 10; i < 100; i += 10) {
+      cout << "________________" << endl;
       cout << 100 - i << "% CPU " << i << "% GPU: " << endl;
       SetTask(function_id, "GPU", {0}, {global_range[0] * i / 100},
               local_range);
@@ -701,18 +864,35 @@ int Keeper::Test(string function_id, vector<unsigned int> global_range,
               {global_range[0]}, local_range);
 
       Start();
-      perfomance_static << i << "\t" << all_time << "\t" << work_time << endl;
+      perfomance_static << i << "\t" << all_time << endl;
+      time_x.push_back(all_time);
       Info("TIME");
     }
 
+    cout << "________________" << endl;
     cout << "0% CPU 100% GPU: " << endl;
     SetTask(function_id, "GPU", {0}, global_range, local_range);
     Start();
     Info("TIME");
-    perfomance_static << "100\t" << all_time << "\t" << work_time << endl;
+    perfomance_static << "100\t" << all_time << endl;
+    time_x.push_back(all_time);
     //========
 
     cout << endl;
+
+    int idx_min = 0;
+
+    for (int i = 0; i < time_x.size(); i++) {
+      if (time_x[idx_min] > time_x[i]) idx_min = i;
+    }
+
+    cout << "THE BEST :";
+      cout << 100 - idx_min * step << "% CPU " << idx_min * step
+           << "% GPU: " << endl;
+     
+	cout << "ALL_TIME:" << time_x[idx_min] << endl;
+
+   	cout << endl;
   }
   perfomance_static.close();
   perfomance_dynamic.close();
@@ -730,11 +910,10 @@ int Function::Write(CommandQueue& command, Buffer& buffer, bool block,
 }
 
 Argument::Argument(void* arg_pointer, vector<unsigned int> dim,
-                   unsigned int data_size, bool flag_change) {
+                   unsigned int data_size) {
   pointer = arg_pointer;
   size = data_size;
   dimension = dim;
-  change = flag_change;
 }
 
 Function::Function(string my_function_id, string kernel_function_name,
@@ -751,8 +930,6 @@ Hive::Hive(Device& dev, CommandQueue& comm, Context& cont, Program& prog,
   program = prog;
   command = comm;
   id = id_name;
-  bool flag = true;
-  done = false;
 
   if (device_type == CL_DEVICE_TYPE_CPU) name = "CPU";
   if (device_type == CL_DEVICE_TYPE_GPU) name = "GPU";

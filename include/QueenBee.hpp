@@ -8,11 +8,10 @@
 #endif
 #include <windows.h>
 #include <fstream>
-//#include <future>
 #include <iostream>
-//#include <thread>
-#include <vector>
 #include <sstream>
+#include <thread>
+#include <vector>
 
 using namespace std;
 using namespace cl;
@@ -23,14 +22,14 @@ class Argument {
   void* res;
   unsigned int size;
   vector<unsigned int> dimension;
-  bool change;
+  // bool change;
   Buffer buffer;
   string type;
   bool inverse;
 
  public:
-  Argument(void* arg_pointer, vector<unsigned int> dim, unsigned int data_size,
-           bool flag_change);
+  Argument(void* arg_pointer, vector<unsigned int> dim, unsigned int data_size/*,
+           bool flag_change*/);
   friend class Function;
   friend class Keeper;
 };
@@ -51,14 +50,13 @@ class Function {
            bool inverse = false);
 
   template <typename Type>
-  int SetArgument(void* arg_pointer, vector<unsigned int> dim,
-                  bool flag_change) {
+  int SetArgument(void* arg_pointer, vector<unsigned int> dim) {
     unsigned int data_size = 1;
     for (auto& d : dim) {
       data_size *= d;
     }
     data_size *= sizeof(Type);
-    Argument tmp(arg_pointer, dim, data_size, flag_change);
+    Argument tmp(arg_pointer, dim, data_size);
     tmp.type = typeid(Type).name();
     tmp.inverse = inverse;
     arguments.push_back(tmp);
@@ -87,18 +85,20 @@ class Hive {
  protected:
   string id;
   string name;
- Context context;
+  Context context;
   vector<Device> device;
   Program program;
   CommandQueue command;
   vector<Function> functions;
+  vector<Function*> functions_ptrs;
   Event event;
-  vector<Task> completed;
+  // vector<Task> completed;
+  vector<Task> tasks;
+
   vector<double> time;
+  // vector<double> time1;
   double work_time;
-  double read_time;
-  bool done;
-  bool busy;
+  // double read_time;
 
  public:
   Hive(Device& dev, CommandQueue& comm, Context& cont, Program& prog,
@@ -126,6 +126,8 @@ class Garden {  // Platform
 
 class Keeper {
  protected:
+  double all_time;
+
   vector<Garden> gardens;
   vector<Task> tasks;
   string kernel;
@@ -136,13 +138,12 @@ class Keeper {
   int SetKernel(string file_name);
   NDRange GetGlobalRange(vector<unsigned int> global_range,
                          vector<unsigned int> offset);
-  double all_time;
-  double read_time;
-  double work_time;
+
+  vector<std::thread*> threads;
 
  public:
   Keeper(string kernel_file_name);
-  int Wait();
+  // int Wait();
   void Info(string mode = "ALL");
   int SetFunction(Function& function);
   int SetTask(string function_id, string parallel_method,
@@ -153,91 +154,94 @@ class Keeper {
                vector<unsigned int> local_range = {});
   int Start();
 
-  int Test(string function_id, vector<unsigned int> global_range,
+  // int StartT();
+  void Keeper::ThreadFunction(Hive& h);
+  int Test(string function_id, int step, vector<unsigned int> global_range,
            vector<unsigned int> local_range = {});
 
-  int Read();
+  //  int Read();
 
-  template <typename Type>
-  int Read(void (*pt2Func)(Type* x, Type* y)) {
-    vector<Type*> results;
-    Type* pointer;
-    for (auto& g : gardens) {
-      for (auto& hive : g.hives) {
-        for (auto& task : hive.completed) {
-          for (auto& f : hive.functions) {
-            if (task.function_id == f.id) {
-              for (auto& a : f.arguments) {
-                if (a.change) {
-                  pointer = static_cast<Type*>(a.pointer);
-                  a.res = new Type[a.size / sizeof(Type)];
-                  Read<Type>(hive, a, task, a.res);
-                  results.push_back(static_cast<Type*>(a.res));
-                }
-              }
-            }
-          }
-        }
-      }
-    }
-
-    for (auto& r : results) {
-      cout << r[0];
-      //  for (auto& cvd : r) {
-      //    pt2Func(pointer, cvd);
-      //  }
-    }
-    // cout << *pointer;
-    return 1;
-  };
-
-  template <typename Type>
-  int Read(Hive& hive, Argument& arg, Task task, void* pointer) {
-    switch (task.globals.size()) {
-      case 1:
-
-        if (arg.dimension.size() == 1 && arg.dimension[0] == 1) {
-          hive.command.enqueueReadBuffer(arg.buffer, CL_FALSE, 0, sizeof(Type),
-                                         static_cast<Type*>(pointer));
-
-        } else {
-          hive.command.enqueueReadBuffer(
-              arg.buffer, CL_FALSE, task.offsets[0] * sizeof(Type),
-              (task.globals[0] - task.offsets[0]) * sizeof(Type),
-              static_cast<Type*>(pointer) + task.offsets[0]);
-        }
-        break;
-
-      case 2:
-
-        if (arg.inverse) {
-          for (unsigned int i = task.offsets[1]; i < task.globals[1]; ++i) {
-            hive.command.enqueueReadBuffer(
-                arg.buffer, CL_FALSE,
-                (i * arg.dimension[1] + task.offsets[0]) * sizeof(Type),
-                (task.globals[0] - task.offsets[0]) * sizeof(Type),
-                static_cast<Type*>(pointer) + task.offsets[0] +
-                    i * arg.dimension[1]);
-          }
-        }
-
-        if (!arg.inverse) {
-          for (unsigned int i = task.offsets[0]; i < task.globals[0]; ++i) {
-            hive.command.enqueueReadBuffer(
-                arg.buffer, CL_FALSE,
-                (i * arg.dimension[0] + task.offsets[1]) * sizeof(Type),
-                (task.globals[1] - task.offsets[1]) * sizeof(Type),
-                static_cast<Type*>(pointer) + task.offsets[1] +
-                    i * arg.dimension[0]);
-          }
-        }
-
-        break;
-
-      default:
-        break;
-    }
-
-    return 0;
-  };
+  // template <typename Type>
+  // int Read(void (*pt2Func)(Type* x, Type* y)) {
+  //  vector<Type*> results;
+  //  Type* pointer;
+  //  for (auto& g : gardens) {
+  //    for (auto& hive : g.hives) {
+  //      for (auto& task : hive.completed) {
+  //        for (auto& f : hive.functions) {
+  //          if (task.function_id == f.id) {
+  //            for (auto& a : f.arguments) {
+  //              if (a.change) {
+  //                pointer = static_cast<Type*>(a.pointer);
+  //                a.res = new Type[a.size / sizeof(Type)];
+  //                Read<Type>(hive, a, task, a.res);
+  //                results.push_back(static_cast<Type*>(a.res));
+  //              }
+  //            }
+  //          }
+  //        }
+  //      }
+  //    }
+  //  }
+  //
+  //  for (auto& r : results) {
+  //    cout << r[0];
+  //    //  for (auto& cvd : r) {
+  //    //    pt2Func(pointer, cvd);
+  //    //  }
+  //  }
+  //  // cout << *pointer;
+  //  return 1;
+  //};
+  //
+  // template <typename Type>
+  // int Read(Hive& hive, Argument& arg, Task task, void* pointer) {
+  //  switch (task.globals.size()) {
+  //    case 1:
+  //
+  //      if (arg.dimension.size() == 1 && arg.dimension[0] == 1) {
+  //        hive.command.enqueueReadBuffer(arg.buffer, CL_FALSE, 0,
+  //        sizeof(Type),
+  //                                       static_cast<Type*>(pointer));
+  //
+  //      } else {
+  //        hive.command.enqueueReadBuffer(
+  //            arg.buffer, CL_FALSE, task.offsets[0] * sizeof(Type),
+  //            (task.globals[0] - task.offsets[0]) * sizeof(Type),
+  //            static_cast<Type*>(pointer) + task.offsets[0]);
+  //      }
+  //      break;
+  //
+  //    case 2:
+  //
+  //      if (arg.inverse) {
+  //        for (unsigned int i = task.offsets[1]; i < task.globals[1]; ++i) {
+  //          hive.command.enqueueReadBuffer(
+  //              arg.buffer, CL_FALSE,
+  //              (i * arg.dimension[1] + task.offsets[0]) * sizeof(Type),
+  //              (task.globals[0] - task.offsets[0]) * sizeof(Type),
+  //              static_cast<Type*>(pointer) + task.offsets[0] +
+  //                  i * arg.dimension[1]);
+  //        }
+  //      }
+  //
+  //      if (!arg.inverse) {
+  //        for (unsigned int i = task.offsets[0]; i < task.globals[0]; ++i) {
+  //          hive.command.enqueueReadBuffer(
+  //              arg.buffer, CL_FALSE,
+  //              (i * arg.dimension[0] + task.offsets[1]) * sizeof(Type),
+  //              (task.globals[1] - task.offsets[1]) * sizeof(Type),
+  //              static_cast<Type*>(pointer) + task.offsets[1] +
+  //                  i * arg.dimension[0]);
+  //        }
+  //      }
+  //
+  //      break;
+  //
+  //    default:
+  //      break;
+  //  }
+  //
+  //  return 0;
+  //};
 };
