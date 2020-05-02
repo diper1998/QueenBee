@@ -37,15 +37,15 @@ int main(int argc, char* argv[]) {
   // cout << size <<endl;
   // cout << task << endl;
 
-  int size = 10;
+  int size = 1600000;
   int task = 1;
 
-  MulMatrixOpt<float>(1600, "GPU");
+  //MulMatrixOpt<float>(1600, "GPU");
   //MulMatrixOpt<float>(1600, "CPU");
   //MulMatrixOpt1<float>(1600, "CPU");
 
-  //MulMatrixOpt<float>(3200);
- // MonteCarlo(size);
+ // MulMatrixOpt<float>(1600);
+  //MonteCarlo(size);
 
   //switch (task) {
   //  case 1:
@@ -66,12 +66,12 @@ int main(int argc, char* argv[]) {
   //    break;
   //}
 
-  // MulMatrixOpt<float>(1600, "GPU");
+   MulMatrixOpt<float>(1600, "GPU");
   //  MulMatrixOpt<float>(3200, "CPU");
 
   // MulMatrixOpt<float>(1600,  "GPU");
   // MulMatrix<float>(1600);
-  //   SumVectors<float>(10000);
+  // SumVectors<float>(size);
   // MonteCarlo(100000);
   //	Convolution(15000, 3, "GPU", 10);
    int tmp;
@@ -106,20 +106,20 @@ void MulMatrixOpt(unsigned int size, string device) {
   Function MulMatrixOpt("mul", "MulMatrixOpt", true);
   MulMatrixOpt.SetArgument<Type>(A, {size, size});
   MulMatrixOpt.SetArgument<Type>(B, {size, size});
-  MulMatrixOpt.SetArgument<Type>(C, {size, size});
+  MulMatrixOpt.SetArgument<Type>(C, {size, size}, true);
   MulMatrixOpt.SetArgument<unsigned int*>(ptr_size, {1});
   MulMatrixOpt.SetArgument<Type>(a, {block, block});
   MulMatrixOpt.SetArgument<Type>(b, {block, block});
   MulMatrixOpt.SetArgument<unsigned int*>(ptr_block, {1});
   queen.SetFunction(MulMatrixOpt);
 
-  
-  queen.SetTask("mul", device, {0, 0}, {size, size}, {block, block});
+  queen.Info("DEV");
+ // queen.SetTask("mul", device, {0, 0}, {size, size}, {block, block});
   
   // queen.Info("TIME");
   // queen.Start();
 
-   queen.Info("TIME");
+   //queen.Info("TIME");
 
   queen.Test("mul", 10, {size, size}, {block, block});
 
@@ -148,75 +148,6 @@ void MulMatrixOpt(unsigned int size, string device) {
   // delete b;
 }
 
-template <typename Type>
-void MulMatrixOpt1(unsigned int size, string device) {
-  Type* A = new Type[size * size];
-  Type* B = new Type[size * size];
-  Type* C = new Type[size * size];
-
-  unsigned int block = 16;
-
-  Type* a = NULL;
-  Type* b = NULL;
-
-  for (unsigned int i = 0; i < size * size; i++) {
-    A[i] = 1;
-    B[i] = 2;
-    C[i] = 0;
-  }
-
-  unsigned int* ptr_size = &size;
-
-  unsigned int* ptr_block = &block;
-
-  ///////////////////////////////////////////////
-  Keeper queen("kernel.txt");
-
-  Function MulMatrixOpt("mul", "MulMatrixOpt", true);
-  MulMatrixOpt.SetArgument<Type>(A, {size, size});
-  MulMatrixOpt.SetArgument<Type>(B, {size, size});
-  MulMatrixOpt.SetArgument<Type>(C, {size, size});
-  MulMatrixOpt.SetArgument<unsigned int*>(ptr_size, {1});
-  MulMatrixOpt.SetArgument<Type>(a, {block, block});
-  MulMatrixOpt.SetArgument<Type>(b, {block, block});
-  MulMatrixOpt.SetArgument<unsigned int*>(ptr_block, {1});
-  queen.SetFunction(MulMatrixOpt);
-
-  queen.SetTask("mul", "CPU", {0, 0}, {size/2, size}, {block, block});
-  queen.SetTask("mul", "GPU", {size / 2, 0}, {size, size}, {block, block});
-  // queen.Info("TIME");
-  queen.Start();
-
-  queen.Info("TIME");
-
-  // queen.Test("mul", 10, {size, size}, {block, block});
-
-  // for (int i = 0; i < size; i++) {
-  // for (int j = 0; j < size; j++) {
-  // std::cout << C[i * size + j] << " ";
-  // }
-  // cout << endl;
-  // }
-
-  int error = 0;
-  for (unsigned int i = 0; i < size * size; i++) {
-    if (C[i] != size * 2) {
-      error++;
-    }
-  }
-
-  cout << "ERROR = " << error << endl;
-  //  int tmp;
-  //  cin >> tmp;
-  delete[] A;
-  delete[] B;
-  delete[] C;
-
-  // delete a;
-  // delete b;
-}
-
-
 
 template <typename Type>
 void MulMatrix(unsigned int size) {
@@ -238,7 +169,7 @@ void MulMatrix(unsigned int size) {
   Function MulMatrix("mul", "MulMatrix", true);
   MulMatrix.SetArgument<Type>(A, {size, size});
   MulMatrix.SetArgument<Type>(B, {size, size});
-  MulMatrix.SetArgument<Type>(C, {size, size});
+  MulMatrix.SetArgument<Type>(C, {size, size}, true);
   MulMatrix.SetArgument<unsigned int>(ptr_size, {1});
 
   queen.SetFunction(MulMatrix);

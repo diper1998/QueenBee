@@ -11,6 +11,7 @@
 #include <iostream>
 #include <sstream>
 #include <thread>
+#include <mutex>
 #include <vector>
 
 using namespace std;
@@ -22,14 +23,14 @@ class Argument {
   void* res;
   unsigned int size;
   vector<unsigned int> dimension;
-  // bool change;
+   bool change;
   Buffer buffer;
   string type;
   bool inverse;
 
  public:
-  Argument(void* arg_pointer, vector<unsigned int> dim, unsigned int data_size/*,
-           bool flag_change*/);
+  Argument(void* arg_pointer, vector<unsigned int> dim, unsigned int data_size,
+           bool flag_change = false);
   friend class Function;
   friend class Keeper;
 };
@@ -50,13 +51,13 @@ class Function {
            bool inverse = false);
 
   template <typename Type>
-  int SetArgument(void* arg_pointer, vector<unsigned int> dim) {
+  int SetArgument(void* arg_pointer, vector<unsigned int> dim, bool flag_chage = false) {
     unsigned int data_size = 1;
     for (auto& d : dim) {
       data_size *= d;
     }
     data_size *= sizeof(Type);
-    Argument tmp(arg_pointer, dim, data_size);
+    Argument tmp(arg_pointer, dim, data_size, flag_chage);
     tmp.type = typeid(Type).name();
     tmp.inverse = inverse;
     arguments.push_back(tmp);
@@ -78,6 +79,7 @@ class Task {
   Task(string my_funcion_id, string my_parallel_method,
        vector<unsigned int> my_offsets, vector<unsigned int> my_global_range,
        vector<unsigned int> my_local_range);
+  Task();
   friend class Keeper;
 };
 
@@ -140,6 +142,10 @@ class Keeper {
                          vector<unsigned int> offset);
 
   vector<std::thread*> threads;
+  std::mutex lock;
+
+  int Static();
+  int Dynamic();
 
  public:
   Keeper(string kernel_file_name);
@@ -152,12 +158,15 @@ class Keeper {
   int SetTasks(string function_id, string parallel_method,
                vector<unsigned int> steps, vector<unsigned int> global_range,
                vector<unsigned int> local_range = {});
-  int Start();
+  int Start(string mode = "STATIC");
+
 
   // int StartT();
   void Keeper::ThreadFunction(Hive& h);
-  int Test(string function_id, int step, vector<unsigned int> global_range,
-           vector<unsigned int> local_range = {});
+  void Keeper::ThreadFunctionDynamic(Hive& h, vector<Task>& tasks);
+
+  int Test(string function_id, unsigned int step, vector<unsigned int> global_range,
+           vector<unsigned int> local_range = {}, unsigned int repeat_count = 10 );
 
   //  int Read();
 
@@ -194,54 +203,56 @@ class Keeper {
   //  return 1;
   //};
   //
-  // template <typename Type>
-  // int Read(Hive& hive, Argument& arg, Task task, void* pointer) {
-  //  switch (task.globals.size()) {
-  //    case 1:
-  //
-  //      if (arg.dimension.size() == 1 && arg.dimension[0] == 1) {
-  //        hive.command.enqueueReadBuffer(arg.buffer, CL_FALSE, 0,
-  //        sizeof(Type),
-  //                                       static_cast<Type*>(pointer));
-  //
-  //      } else {
-  //        hive.command.enqueueReadBuffer(
-  //            arg.buffer, CL_FALSE, task.offsets[0] * sizeof(Type),
-  //            (task.globals[0] - task.offsets[0]) * sizeof(Type),
-  //            static_cast<Type*>(pointer) + task.offsets[0]);
-  //      }
-  //      break;
-  //
-  //    case 2:
-  //
-  //      if (arg.inverse) {
-  //        for (unsigned int i = task.offsets[1]; i < task.globals[1]; ++i) {
-  //          hive.command.enqueueReadBuffer(
-  //              arg.buffer, CL_FALSE,
-  //              (i * arg.dimension[1] + task.offsets[0]) * sizeof(Type),
-  //              (task.globals[0] - task.offsets[0]) * sizeof(Type),
-  //              static_cast<Type*>(pointer) + task.offsets[0] +
-  //                  i * arg.dimension[1]);
-  //        }
-  //      }
-  //
-  //      if (!arg.inverse) {
-  //        for (unsigned int i = task.offsets[0]; i < task.globals[0]; ++i) {
-  //          hive.command.enqueueReadBuffer(
-  //              arg.buffer, CL_FALSE,
-  //              (i * arg.dimension[0] + task.offsets[1]) * sizeof(Type),
-  //              (task.globals[1] - task.offsets[1]) * sizeof(Type),
-  //              static_cast<Type*>(pointer) + task.offsets[1] +
-  //                  i * arg.dimension[0]);
-  //        }
-  //      }
-  //
-  //      break;
-  //
-  //    default:
-  //      break;
-  //  }
-  //
-  //  return 0;
-  //};
+
+  int Read(Hive& h, Function& function, Task& task);
+   template <typename Type>
+   int Read(Hive& hive, Argument& arg, Task task, void* pointer) {
+    switch (task.globals.size()) {
+      case 1:
+  
+        if (arg.dimension.size() == 1 && arg.dimension[0] == 1) {
+          hive.command.enqueueReadBuffer(arg.buffer, CL_FALSE, 0,
+          sizeof(Type),
+                                         static_cast<Type*>(pointer));
+  
+        } else {
+          hive.command.enqueueReadBuffer(
+              arg.buffer, CL_FALSE, task.offsets[0] * sizeof(Type),
+              (task.globals[0] - task.offsets[0]) * sizeof(Type),
+              static_cast<Type*>(pointer) + task.offsets[0]);
+        }
+        break;
+  
+      case 2:
+  
+        if (arg.inverse) {
+          for (unsigned int i = task.offsets[1]; i < task.globals[1]; ++i) {
+            hive.command.enqueueReadBuffer(
+                arg.buffer, CL_FALSE,
+                (i * arg.dimension[1] + task.offsets[0]) * sizeof(Type),
+                (task.globals[0] - task.offsets[0]) * sizeof(Type),
+                static_cast<Type*>(pointer) + task.offsets[0] +
+                    i * arg.dimension[1]);
+          }
+        }
+  
+        if (!arg.inverse) {
+          for (unsigned int i = task.offsets[0]; i < task.globals[0]; ++i) {
+            hive.command.enqueueReadBuffer(
+                arg.buffer, CL_FALSE,
+                (i * arg.dimension[0] + task.offsets[1]) * sizeof(Type),
+                (task.globals[1] - task.offsets[1]) * sizeof(Type),
+                static_cast<Type*>(pointer) + task.offsets[1] +
+                    i * arg.dimension[0]);
+          }
+        }
+  
+        break;
+  
+      default:
+        break;
+    }
+  
+    return 0;
+  };
 };
