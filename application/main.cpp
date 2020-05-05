@@ -121,7 +121,7 @@ void MulMatrixOpt(unsigned int size, string device) {
 
    //queen.Info("TIME");
 
-  queen.Test("mul", 10, {size, size}, {block, block});
+ queen.Test(3, "mul", 10, {size, size}, {block, block});
 
   // for (int i = 0; i < size; i++) {
   // for (int j = 0; j < size; j++) {
@@ -302,7 +302,7 @@ void MonteCarlo(unsigned int size) {
 
   // queen.SetTask("mc", "CPU", {0}, {size/2});
   // queen.SetTask("mc", "GPU", {size/2}, {size });
-  queen.Test("mc", 10, {size});
+  queen.Test(10, "mc", 10, {size});
 
   //  queen.SetTasks("mc", "ALL", {size / 10}, {size});
   //
@@ -369,7 +369,7 @@ void Convolution(unsigned int size, unsigned int radius) {
 
   // queen.Info("STAT");
 
-  queen.Test("conv", 10, {size, size});
+  queen.Test(10, "conv", 10, {size, size});
 
   /*
 

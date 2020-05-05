@@ -46,9 +46,10 @@ int Keeper::Dynamic() {
     }
   }
 
+
   for (auto& g : gardens) {
     for (auto& h : g.hives) {
-      if (h.tasks.size() != 0) {
+      if (tasks.size() != 0) {
         std::thread* thr = new thread(&Keeper::ThreadFunctionDynamic, this,
                                       std::ref(h), std::ref(tasks));
 
@@ -149,9 +150,24 @@ int Keeper::SetGardens() {  // all platforms with devices
     garden.platform.getDevices(CL_DEVICE_TYPE_ALL, &garden.devices);
 
     gardens.push_back(garden);
+
+	for (const auto& g : gardens) {
+    
+		for (const auto& d : g.devices) {
+
+			cout << d.getInfo<CL_DEVICE_NAME>() << endl;
+                  cout << "dssfd" << endl;
+                
+
+          }
+		
+	
+	}
+	
   }
 
   for (int i = 0; i < gardens.size(); ++i) {
+
     for (int j = i + 1; j < gardens.size(); ++j) {
       for (int n = 0; n < gardens[i].devices.size(); ++n) {
         for (int m = 0; m < gardens[j].devices.size(); ++m) {
@@ -527,9 +543,10 @@ int Keeper::Start(string mode) {
   return 1;
 }
 
-int Keeper::Test(string function_id, unsigned int step,
+int Keeper::Test(unsigned int repeat_count, string function_id,
+                 unsigned int step,
                  vector<unsigned int> global_range,
-                 vector<unsigned int> local_range, unsigned int repeat_count) {
+                 vector<unsigned int> local_range) {
   std::ofstream perfomance_static;
   std::ofstream perfomance_dynamic;
   std::stringstream ss;
@@ -555,7 +572,24 @@ int Keeper::Test(string function_id, unsigned int step,
   double try_time_x = 0;
   double try_time_y = 0;
 
-  if (global_range.size() == 2) {
+  unsigned int split_x = global_range[0] * 10/100;
+  unsigned int split_y = global_range[1] * 10/100;
+
+  cout << split_x  << endl;
+  cout << split_y << endl;
+
+    if (global_range.size() == 2) {
+
+	for (int n = 0; n < count; n++) {
+      SetTasks(function_id, "CPU", {split_x, split_y}, global_range,
+               local_range);
+
+      Start("DYNAMIC");
+      Info("TIME");
+    }
+
+
+	// TEST STATIC
     for (int n = 0; n < count; n++) {
       cout << "________________" << endl;
       cout << "100% CPU 0% GPU: " << endl;
