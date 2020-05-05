@@ -46,7 +46,6 @@ int Keeper::Dynamic() {
     }
   }
 
-
   for (auto& g : gardens) {
     for (auto& h : g.hives) {
       if (tasks.size() != 0) {
@@ -151,23 +150,14 @@ int Keeper::SetGardens() {  // all platforms with devices
 
     gardens.push_back(garden);
 
-	for (const auto& g : gardens) {
-    
-		for (const auto& d : g.devices) {
-
-			cout << d.getInfo<CL_DEVICE_NAME>() << endl;
-                  cout << "dssfd" << endl;
-                
-
-          }
-		
-	
-	}
-	
+    for (const auto& g : gardens) {
+      for (const auto& d : g.devices) {
+        cout << d.getInfo<CL_DEVICE_NAME>() << endl;
+      }
+    }
   }
 
   for (int i = 0; i < gardens.size(); ++i) {
-
     for (int j = i + 1; j < gardens.size(); ++j) {
       for (int n = 0; n < gardens[i].devices.size(); ++n) {
         for (int m = 0; m < gardens[j].devices.size(); ++m) {
@@ -544,8 +534,7 @@ int Keeper::Start(string mode) {
 }
 
 int Keeper::Test(unsigned int repeat_count, string function_id,
-                 unsigned int step,
-                 vector<unsigned int> global_range,
+                 unsigned int step, vector<unsigned int> global_range,
                  vector<unsigned int> local_range) {
   std::ofstream perfomance_static;
   std::ofstream perfomance_dynamic;
@@ -571,25 +560,102 @@ int Keeper::Test(unsigned int repeat_count, string function_id,
   double averege_time = 0;
   double try_time_x = 0;
   double try_time_y = 0;
+  double time_dynamic = 0;
+  double best_time_dynamic = 0;
+  double best_percent = 0;
 
-  unsigned int split_x = global_range[0] * 10/100;
-  unsigned int split_y = global_range[1] * 10/100;
+  unsigned int percent = 0;
+  unsigned int split_x = 0;
+  unsigned int split_y = 0;
 
-  cout << split_x  << endl;
-  cout << split_y << endl;
+  if (global_range.size() == 2) {
+    percent = 10;
+    split_x = global_range[0] * percent / 100;
+    split_y = global_range[1] * percent / 100;
 
-    if (global_range.size() == 2) {
+    // TEST DYNAMIC
 
-	for (int n = 0; n < count; n++) {
+    percent = 10;
+    split_x = global_range[0] * percent / 100;
+    split_y = global_range[1] * percent / 100;
+
+    cout << "DYNAMIC" << endl;
+
+    for (int n = 0; n < count; n++) {
+      cout << "________________" << endl;
+      cout << percent << "% SPLIT" << endl;
       SetTasks(function_id, "CPU", {split_x, split_y}, global_range,
                local_range);
 
       Start("DYNAMIC");
       Info("TIME");
+      time_dynamic += all_time;
     }
 
+    time_dynamic /= count;
 
-	// TEST STATIC
+    best_time_dynamic = time_dynamic;
+    best_percent = percent;
+
+    time_dynamic = 0;
+
+    percent = 20;
+    split_x = global_range[0] * percent / 100;
+    split_y = global_range[1] * percent / 100;
+
+    cout << "________________" << endl;
+    cout << percent << "% SPLIT" << endl;
+
+    for (int n = 0; n < count; n++) {
+      cout << "________________" << endl;
+      cout << percent << "% SPLIT" << endl;
+
+      SetTasks(function_id, "CPU", {split_x, split_y}, global_range,
+               local_range);
+
+      Start("DYNAMIC");
+      Info("TIME");
+      time_dynamic += all_time;
+    }
+
+    time_dynamic /= count;
+
+    if (time_dynamic < best_time_dynamic) {
+      best_time_dynamic = time_dynamic;
+      best_percent = percent;
+    }
+
+    time_dynamic = 0;
+
+    percent = 50;
+    split_x = global_range[0] * percent / 100;
+    split_y = global_range[1] * percent / 100;
+
+    cout << "________________" << endl;
+    cout << percent << "% SPLIT" << endl;
+
+    for (int n = 0; n < count; n++) {
+      cout << "________________" << endl;
+      cout << percent << "% SPLIT" << endl;
+
+      SetTasks(function_id, "CPU", {split_x, split_y}, global_range,
+               local_range);
+
+      Start("DYNAMIC");
+      Info("TIME");
+      time_dynamic += all_time;
+    }
+
+    time_dynamic /= count;
+
+    if (time_dynamic < best_time_dynamic) {
+      best_time_dynamic = time_dynamic;
+      best_percent = percent;
+    }
+
+    // TEST STATIC
+    cout << "STATIC" << endl;
+
     for (int n = 0; n < count; n++) {
       cout << "________________" << endl;
       cout << "100% CPU 0% GPU: " << endl;
@@ -702,11 +768,8 @@ int Keeper::Test(unsigned int repeat_count, string function_id,
     time_x.push_back(time_gpu);
     cout << endl;
 
-   
     double cpu_part = (1 - (time_cpu / (time_cpu + time_gpu))) * 100;
     double gpu_part = 100 - cpu_part;
-
-  
 
     try_time_x = 0;
 
@@ -719,13 +782,12 @@ int Keeper::Test(unsigned int repeat_count, string function_id,
               {global_range[0], global_range[1]}, local_range);
 
       Start();
-     // Info("TIME");
+      // Info("TIME");
 
       try_time_x += all_time;
     }
 
     try_time_x /= count;
-
 
     try_time_y = 0;
 
@@ -737,16 +799,25 @@ int Keeper::Test(unsigned int repeat_count, string function_id,
       SetTask(function_id, "CPU", {0, global_range[0] * int(gpu_part) / 100},
               {global_range[0], global_range[1]}, local_range);
       Start();
-     // Info("TIME");
+      // Info("TIME");
 
       try_time_y += all_time;
     }
 
     try_time_y /= count;
 
-    cout << "TEST RESULTS:" << endl << endl;
-    cout << "ANALYTIC:" << endl << endl;
+	Info("DEV");
 
+    cout << "TEST RESULTS:" << endl << endl;
+
+    cout << "DYNAMIC:" << endl << endl;
+    cout << "PERCENT: " << best_percent << "%" << endl;
+    cout << "TIME: " << best_time_dynamic << endl;
+    cout << endl;
+
+    cout << "STATIC:" << endl << endl;
+
+    cout << "ANALYTIC:" << endl << endl;
 
     cout << "CPU PART: " << cpu_part << "%" << endl;
     cout << "CPU TIME: " << (cpu_part * time_cpu) / 100.0 << endl << endl;
@@ -770,23 +841,99 @@ int Keeper::Test(unsigned int repeat_count, string function_id,
       if (time_x[idy_min] > time_x[i]) idy_min = i;
     }
 
-    cout << "BEST :";
+    cout << "BEST:" << endl;
     if (time_x[idx_min] < time_y[idy_min]) {
       cout << "X: " << endl;
       cout << 100 - idx_min * step << "% CPU " << idx_min * step
            << "% GPU: " << endl;
-      cout << "ALL_TIME: " << time_x[idx_min] << endl;
+      cout << "TIME: " << time_x[idx_min] << endl;
     } else {
       cout << "Y: " << endl;
       cout << 100 - idy_min * step << "% CPU " << idy_min * step
            << "% GPU: " << endl;
-      cout << "ALL_TIME: " << time_y[idy_min] << endl;
+      cout << "TIME: " << time_y[idy_min] << endl;
     }
 
     cout << endl;
   }
   //===========================================================
   if (global_range.size() == 1) {
+    percent = 10;
+    split_x = global_range[0] * percent / 100;
+
+    // TEST DYNAMIC
+    time_dynamic = 0;
+
+    percent = 10;
+    split_x = global_range[0] * percent / 100;
+
+    cout << "DYNAMIC" << endl;
+
+    for (int n = 0; n < count; n++) {
+      cout << "________________" << endl;
+      cout << percent << "% SPLIT" << endl;
+
+      SetTasks(function_id, "CPU", {split_x}, global_range, local_range);
+
+      Start("DYNAMIC");
+      Info("TIME");
+      time_dynamic += all_time;
+    }
+
+    time_dynamic /= count;
+
+    best_time_dynamic = time_dynamic;
+    best_percent = percent;
+
+    time_dynamic = 0;
+
+    percent = 20;
+    split_x = global_range[0] * percent / 100;
+
+    for (int n = 0; n < count; n++) {
+      cout << "________________" << endl;
+      cout << percent << "% SPLIT" << endl;
+
+      SetTasks(function_id, "CPU", {split_x}, global_range, local_range);
+
+      Start("DYNAMIC");
+      Info("TIME");
+
+      time_dynamic += all_time;
+    }
+
+    time_dynamic /= count;
+
+    if (time_dynamic < best_time_dynamic) {
+      best_time_dynamic = time_dynamic;
+      best_percent = percent;
+    }
+
+    time_dynamic = 0;
+
+    percent = 50;
+    split_x = global_range[0] * percent / 100;
+
+    for (int n = 0; n < count; n++) {
+      cout << "________________" << endl;
+      cout << percent << "% SPLIT" << endl;
+
+      SetTasks(function_id, "CPU", {split_x}, global_range, local_range);
+
+      Start("DYNAMIC");
+      Info("TIME");
+      time_dynamic += all_time;
+    }
+
+    time_dynamic /= count;
+
+    if (time_dynamic < best_time_dynamic) {
+      best_time_dynamic = time_dynamic;
+      best_percent = percent;
+    }
+
+    // TEST STATIC
+
     time_cpu = 0;
     for (int n = 0; n < count; n++) {
       cout << "________________" << endl;
@@ -850,8 +997,6 @@ int Keeper::Test(unsigned int repeat_count, string function_id,
     double cpu_part = (1 - (time_cpu / (time_cpu + time_gpu))) * 100;
     double gpu_part = 100 - cpu_part;
 
-  
-
     try_time_x = 0;
 
     for (int n = 0; n < count; n++) {
@@ -862,13 +1007,25 @@ int Keeper::Test(unsigned int repeat_count, string function_id,
               {global_range[0]}, local_range);
 
       Start();
-     // Info("TIME");
+      // Info("TIME");
       try_time_x += all_time;
     }
 
     try_time_x /= count;
 
+    Info("DEV");
+
+	
+
     cout << "TEST RESULTS:" << endl << endl;
+
+    cout << "DYNAMIC:" << endl << endl;
+    cout << "PERCENT: " << best_percent << "%" << endl;
+    cout << "TIME: " << best_time_dynamic << endl;
+    cout << endl;
+
+    cout << "STATIC:" << endl << endl;
+
     cout << "ANALYTIC:" << endl << endl;
     cpu_part = (1 - (time_cpu / (time_cpu + time_gpu))) * 100;
     gpu_part = 100 - cpu_part;
@@ -884,12 +1041,11 @@ int Keeper::Test(unsigned int repeat_count, string function_id,
     cout << "TRY IT:" << endl << endl;
     cout << "TIME X: " << try_time_x << endl << endl;
 
-        cout
-         << "BEST :";
+    cout << "BEST:";
     cout << 100 - idx_min * step << "% CPU " << idx_min * step
          << "% GPU: " << endl;
 
-    cout << "ALL_TIME:" << time_x[idx_min] << endl;
+    cout << "TIME:" << time_x[idx_min] << endl;
 
     cout << endl;
   }
