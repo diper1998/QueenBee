@@ -808,8 +808,6 @@ int Keeper::Test(unsigned int repeat_count, string function_id,
   double try_time_ycpu_read = 0;
   double try_time_ygpu_read = 0;
 
-
-
   double averege_time = 0;
   double try_time_x = 0;
   double try_time_y = 0;
@@ -962,9 +960,6 @@ int Keeper::Test(unsigned int repeat_count, string function_id,
 
       time_cpu += all_time;
 
-  
-
-
       if (compare_result.size() != 0) {
         for (auto& g : gardens) {
           for (auto& f : g.functions) {
@@ -1052,7 +1047,6 @@ int Keeper::Test(unsigned int repeat_count, string function_id,
 
       time_gpu += all_time;
 
-
       if (compare_result.size() != 0) {
         for (auto& g : gardens) {
           for (auto& f : g.functions) {
@@ -1084,8 +1078,7 @@ int Keeper::Test(unsigned int repeat_count, string function_id,
       Info("TIME");
       time_cpu += all_time;
 
-
-	      for (auto& g : gardens) {
+      for (auto& g : gardens) {
         for (auto& h : g.hives) {
           if (h.name == "CPU") {
             time_100cpu_work += h.all_work_time;
@@ -1093,8 +1086,6 @@ int Keeper::Test(unsigned int repeat_count, string function_id,
           }
         }
       }
-
-
 
       if (compare_result.size() != 0) {
         for (auto& g : gardens) {
@@ -1182,7 +1173,7 @@ int Keeper::Test(unsigned int repeat_count, string function_id,
 
       time_gpu += all_time;
 
-	  for (auto& g : gardens) {
+      for (auto& g : gardens) {
         for (auto& h : g.hives) {
           if (h.name == "GPU") {
             time_100gpu_work += h.all_work_time;
@@ -1190,8 +1181,6 @@ int Keeper::Test(unsigned int repeat_count, string function_id,
           }
         }
       }
-
-
 
       if (compare_result.size() != 0) {
         for (auto& g : gardens) {
@@ -1237,8 +1226,7 @@ int Keeper::Test(unsigned int repeat_count, string function_id,
 
       try_time_x += all_time;
 
-
-	   for (auto& g : gardens) {
+      for (auto& g : gardens) {
         for (auto& h : g.hives) {
           if (h.name == "CPU") {
             try_time_xcpu_work += h.all_work_time;
@@ -1251,8 +1239,6 @@ int Keeper::Test(unsigned int repeat_count, string function_id,
           }
         }
       }
-
-
 
       if (compare_result.size() != 0) {
         for (auto& g : gardens) {
@@ -1289,8 +1275,7 @@ int Keeper::Test(unsigned int repeat_count, string function_id,
 
       try_time_y += all_time;
 
-	  
-	   for (auto& g : gardens) {
+      for (auto& g : gardens) {
         for (auto& h : g.hives) {
           if (h.name == "CPU") {
             try_time_ycpu_work += h.all_work_time;
@@ -1303,8 +1288,6 @@ int Keeper::Test(unsigned int repeat_count, string function_id,
           }
         }
       }
-
-
 
       if (compare_result.size() != 0) {
         for (auto& g : gardens) {
@@ -1376,16 +1359,15 @@ int Keeper::Test(unsigned int repeat_count, string function_id,
     cout << endl;
     cout << "TRY IT:" << endl << endl;
 
-	cout << "X: " << endl;
+    cout << "X: " << endl;
     cout << cpu_part << "% CPU " << gpu_part << "%  GPU: " << endl;
-	 cout << "CPU: WORK = " << try_time_xcpu_work / count
-             << " READ = " << try_time_xcpu_read / count << endl;
+    cout << "CPU: WORK = " << try_time_xcpu_work / count
+         << " READ = " << try_time_xcpu_read / count << endl;
 
-	 cout << "GPU: WORK = " << try_time_xgpu_work / count
-              << " READ = " << try_time_xgpu_read / count << endl;
+    cout << "GPU: WORK = " << try_time_xgpu_work / count
+         << " READ = " << try_time_xgpu_read / count << endl;
 
     cout << "ALL_WORK = " << try_time_x << endl;
-    
 
     cout << "Y: " << endl;
     cout << cpu_part << "% CPU " << gpu_part << "%  GPU: " << endl;
@@ -1404,7 +1386,7 @@ int Keeper::Test(unsigned int repeat_count, string function_id,
     }
 
     for (int i = 0; i < time_y.size(); i++) {
-      if (time_x[idy_min] > time_x[i]) idy_min = i;
+      if (time_y[idy_min] > time_y[i]) idy_min = i;
     }
 
     cout << "STATIC:" << endl << endl;
@@ -1561,6 +1543,15 @@ int Keeper::Test(unsigned int repeat_count, string function_id,
       Info("TIME");
       time_cpu += all_time;
 
+      for (auto& g : gardens) {
+        for (auto& h : g.hives) {
+          if (h.name == "CPU") {
+            time_100cpu_work += h.all_work_time;
+            time_100cpu_read += h.all_read_time;
+          }
+        }
+      }
+
       if (compare_result.size() != 0) {
         for (auto& g : gardens) {
           for (auto& f : g.functions) {
@@ -1599,6 +1590,24 @@ int Keeper::Test(unsigned int repeat_count, string function_id,
         Info("TIME");
         averege_time += all_time;
 
+        if (i == 50) {
+          for (auto& g : gardens) {
+            for (auto& h : g.hives) {
+              if (h.name == "CPU") {
+                time_x50cpu_work += h.all_work_time;
+                time_x50cpu_read += h.all_read_time;
+              }
+
+              if (h.name == "GPU") {
+                time_x50gpu_work += h.all_work_time;
+                time_x50gpu_read += h.all_read_time;
+              }
+            }
+          }
+
+          time_x50 += all_time;
+        }
+
         if (compare_result.size() != 0) {
           for (auto& g : gardens) {
             for (auto& f : g.functions) {
@@ -1625,6 +1634,15 @@ int Keeper::Test(unsigned int repeat_count, string function_id,
       Start();
       Info("TIME");
       time_gpu += all_time;
+
+      for (auto& g : gardens) {
+        for (auto& h : g.hives) {
+          if (h.name == "GPU") {
+            time_100gpu_work += h.all_work_time;
+            time_100gpu_read += h.all_read_time;
+          }
+        }
+      }
 
       if (compare_result.size() != 0) {
         for (auto& g : gardens) {
@@ -1677,6 +1695,20 @@ int Keeper::Test(unsigned int repeat_count, string function_id,
       Info("TIME");
       try_time_x += all_time;
 
+      for (auto& g : gardens) {
+        for (auto& h : g.hives) {
+          if (h.name == "CPU") {
+            try_time_xcpu_work += h.all_work_time;
+            try_time_xcpu_read += h.all_read_time;
+          }
+
+          if (h.name == "GPU") {
+            try_time_xgpu_work += h.all_work_time;
+            try_time_xgpu_read += h.all_read_time;
+          }
+        }
+      }
+
       if (compare_result.size() != 0) {
         for (auto& g : gardens) {
           for (auto& f : g.functions) {
@@ -1703,9 +1735,32 @@ int Keeper::Test(unsigned int repeat_count, string function_id,
     cout << "TIME: " << best_time_dynamic << endl;
     cout << endl;
 
+    cout << "ANALYTIC:" << endl << endl;
+
+    cout << "100% CPU" << endl;
+    cout << "CPU: WORK = " << time_100cpu_work / count
+         << " READ = " << time_100cpu_read / count << endl;
+    cout << "ALL_WORK = " << time_cpu << endl;
+    cout << endl;
+    cout << "100% GPU" << endl;
+    cout << "GPU: WORK = " << time_100gpu_work / count
+         << " READ = " << time_100gpu_read / count << endl;
+    cout << "ALL_WORK = " << time_gpu << endl;
+
+    cout << endl;
+
+    cout << "X" << endl;
+    cout << "50% CPU 50% GPU" << endl;
+    cout << "CPU: WORK = " << time_x50cpu_work / count
+         << " READ = " << time_x50cpu_read / count << endl;
+    cout << "GPU: WORK = " << time_y50gpu_work / count
+         << " READ = " << time_x50gpu_read / count << endl;
+
+    cout << "ALL_WORK = " << time_x50 / count << endl;
+    cout << endl;
+
     cout << "STATIC:" << endl << endl;
 
-    cout << "ANALYTIC:" << endl << endl;
     cpu_part = (1 - (time_cpu / (time_cpu + time_gpu))) * 100;
     gpu_part = 100 - cpu_part;
 
@@ -1718,7 +1773,16 @@ int Keeper::Test(unsigned int repeat_count, string function_id,
     cout << endl;
 
     cout << "TRY IT:" << endl << endl;
-    cout << "TIME X: " << try_time_x << endl << endl;
+
+    cout << "X: " << endl;
+    cout << cpu_part << "% CPU " << gpu_part << "%  GPU: " << endl;
+    cout << "CPU: WORK = " << try_time_xcpu_work / count
+         << " READ = " << try_time_xcpu_read / count << endl;
+
+    cout << "GPU: WORK = " << try_time_xgpu_work / count
+         << " READ = " << try_time_xgpu_read / count << endl;
+
+    cout << "ALL_WORK = " << try_time_x << endl;
 
     cout << "BEST:";
     cout << 100 - idx_min * step << "% CPU " << idx_min * step
