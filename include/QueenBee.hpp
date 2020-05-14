@@ -1,17 +1,14 @@
 #define CL_USE_DEPRECATED_OPENCL_1_2_APIS
 #define _CL_ENABLE_EXCEPTIONS
 
-#if defined(__APPLE__) || defined(__MACOSX)
-#include <OpenCL/cl.hpp>
-#else
 #include <Cl/cl.hpp>
-#endif
 #include <windows.h>
 #include <fstream>
 #include <iostream>
 #include <mutex>
 #include <sstream>
 #include <thread>
+#include <utility>
 #include <vector>
 
 using namespace std;
@@ -29,6 +26,7 @@ class Argument {
   bool inverse;
 
  public:
+  Argument();
   Argument(void* arg_pointer, vector<unsigned int> dim, unsigned int data_size,
            bool flag_change = false);
   friend class Function;
@@ -47,6 +45,7 @@ class Function {
                       const void* data_point);
 
  public:
+  Function();
   Function(string my_function_id, string kernel_function_name,
            bool inverse = false);
 
@@ -77,10 +76,10 @@ class Task {
   vector<unsigned int> offsets;
 
  public:
+  Task();
   Task(string my_funcion_id, string my_parallel_method,
        vector<unsigned int> my_offsets, vector<unsigned int> my_global_range,
        vector<unsigned int> my_local_range);
-  Task();
   friend class Keeper;
 };
 
@@ -95,15 +94,14 @@ class Hive {
   vector<Function> functions;
   vector<Function*> functions_ptrs;
   Event event;
-  // vector<Task> completed;
   vector<Task> tasks;
-
-  vector<double> time;
-  // vector<double> time1;
-  double work_time;
-  // double read_time;
+  vector<double> work_time;
+  double all_work_time;
+  vector<double> read_time;
+  double all_read_time;
 
  public:
+  Hive();
   Hive(Device& dev, CommandQueue& comm, Context& cont, Program& prog,
        string id_name, cl_device_type device_type);
 
@@ -135,22 +133,29 @@ class Keeper {
   vector<Task> tasks;
   string kernel;
   Program::Sources source;
-  NDRange GetRange(vector<unsigned int> indexs);
-  int Build();
-  int SetGardens();
-  int SetKernel(string file_name);
-  NDRange GetGlobalRange(vector<unsigned int> global_range,
-                         vector<unsigned int> offset);
 
   vector<std::thread*> threads;
   std::mutex lock;
 
+  int Build();
+  int SetGardens();
+  int SetKernel(string file_name);
+  NDRange GetRange(vector<unsigned int> indexs);
+  NDRange GetGlobalRange(vector<unsigned int> global_range,
+                         vector<unsigned int> offset);
+
   int Static();
   int Dynamic();
+  void Keeper::ThreadFunction(Hive& h);
+  void Keeper::ThreadFunctionDynamic(Hive& h, vector<Task>& tasks);
+  int CompareValue(void* first, void* second, unsigned int position, string type);
+  int Compare(vector<Argument> arguments,
+              vector<void*> compare_result);
+
 
  public:
+  Keeper();
   Keeper(string kernel_file_name);
-  // int Wait();
   void Info(string mode = "ALL");
   int SetFunction(Function& function);
   int SetTask(string function_id, string parallel_method,
@@ -162,51 +167,8 @@ class Keeper {
 
   int Start(string mode = "STATIC");
 
-  // int StartT();
-  void Keeper::ThreadFunction(Hive& h);
-  void Keeper::ThreadFunctionDynamic(Hive& h, vector<Task>& tasks);
-
-  int Test(unsigned int repeat_count, string function_id, unsigned int step,
-           vector<unsigned int> global_range,
-           vector<unsigned int> local_range = {});
-
-  //  int Read();
-
-  // template <typename Type>
-  // int Read(void (*pt2Func)(Type* x, Type* y)) {
-  //  vector<Type*> results;
-  //  Type* pointer;
-  //  for (auto& g : gardens) {
-  //    for (auto& hive : g.hives) {
-  //      for (auto& task : hive.completed) {
-  //        for (auto& f : hive.functions) {
-  //          if (task.function_id == f.id) {
-  //            for (auto& a : f.arguments) {
-  //              if (a.change) {
-  //                pointer = static_cast<Type*>(a.pointer);
-  //                a.res = new Type[a.size / sizeof(Type)];
-  //                Read<Type>(hive, a, task, a.res);
-  //                results.push_back(static_cast<Type*>(a.res));
-  //              }
-  //            }
-  //          }
-  //        }
-  //      }
-  //    }
-  //  }
-  //
-  //  for (auto& r : results) {
-  //    cout << r[0];
-  //    //  for (auto& cvd : r) {
-  //    //    pt2Func(pointer, cvd);
-  //    //  }
-  //  }
-  //  // cout << *pointer;
-  //  return 1;
-  //};
-  //
-
   int Read(Hive& h, Function& function, Task& task);
+
   template <typename Type>
   int Read(Hive& hive, Argument& arg, Task task, void* pointer) {
     switch (task.globals.size()) {
@@ -256,4 +218,12 @@ class Keeper {
 
     return 0;
   };
+
+  int Test(unsigned int repeat_count, string function_id, unsigned int step,
+           vector<unsigned int> global_range,
+           vector<unsigned int> local_range = {},
+           vector<void*> compare_result = {});
+
+  
+
 };

@@ -1,17 +1,8 @@
 
-kernel void SumVectors(global const float* A, global const float* B,
-                       global float* C) {
-  int i = get_global_id(0);
-  C[i] = A[i] + B[i];
-
-}
-
-
-
-kernel void MulMatrix(global const float* A, global const float* B,
-                      global float* C, constant int* ptrSize) {
-  int i = get_global_id(0);
-  int j = get_global_id(1);
+kernel void MulMatrix(global const double* A, global const double* B,
+                      global double* C, constant int* ptrSize) {
+  int i = get_global_id(1);
+  int j = get_global_id(0);
   int size = *ptrSize;
 
 
@@ -24,12 +15,14 @@ kernel void MulMatrix(global const float* A, global const float* B,
 
 }
 
-kernel void MulMatrixOpt(global const float* a, global const float* b,
-                         global float* c, constant int* size_ptr,
-                         local float* a_local, local float* b_local,
+
+kernel void MulMatrixOpt(global  double* a, global double* b,
+                         global double* c, constant int* size_ptr,
+                         local double* a_local, local double* b_local,
                          constant int* blocksize_ptr) {
   int j = get_global_id(0);
   int i = get_global_id(1);
+  barrier(CLK_GLOBAL_MEM_FENCE);
 
   int size = *size_ptr;
   int BLOCK_SIZE = *blocksize_ptr;
@@ -37,7 +30,8 @@ kernel void MulMatrixOpt(global const float* a, global const float* b,
   int localJ = get_local_id(0);
   int localI = get_local_id(1);
 
-  float sum = 0.0f;
+  double sum = 0.0f;
+
 
   for (int p = 0; p < size / BLOCK_SIZE; ++p) {
     a_local[localI * BLOCK_SIZE + localJ] =
@@ -52,52 +46,15 @@ kernel void MulMatrixOpt(global const float* a, global const float* b,
     }
     barrier(CLK_LOCAL_MEM_FENCE);
   }
+
   c[i * size + j] = sum;
-  //printf("%f ", c[i * size + j]);
+  barrier(CLK_GLOBAL_MEM_FENCE);
+
+
+ //printf("%d ", c[i*size+j]);
+ 
 }
 
-float random_uniform(unsigned int state[static const 5]) {
-    
-    unsigned int s,
-	             t = state[3];
-	t ^= t >> 2;
-	t ^= t << 1;
-	state[3] = state[2]; state[2] = state[1]; state[1] = s = state[0];
-	t ^= s;
-	t ^= s << 4;
-	state[0] = t;
-	state[4] += 362437;
-
-	union {
-	    unsigned int ui;
-		float f; 
-	} ret;
-	ret.ui = 0x3F800000 | t + state[4] >> 9;
-	return ret.f - 1.0f;
-}	
-
-
-kernel void MonteCarlo(global int* output, constant unsigned int* N) {
-   
-
-    const int id = get_global_id(0);
-
-	const float c = 1.0f - sqrt(3.0f)/2.0f,
-	            d = sqrt(3.0f)/2.0f;
-	int i,
-	    a = 0;
-	unsigned int n = *N;
-	float x, y;
-	unsigned int seed[5];
-	seed[0] = id;
-	for(i = 0; i != n; ++i) {
-	    x = random_uniform(seed)*0.5f;
-		y = random_uniform(seed)*c;
-		if(y < sqrt(1 - x*x) - d)
-		    ++a;
-	}
-	output[id] = a;
-}
 
 kernel void Convolution(global float* in, global float* out, 
 			constant int* ptr_size, global float* kern, 

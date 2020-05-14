@@ -3,51 +3,57 @@
 #include "QueenBee.hpp"
 
 template <typename Type>
-void MulMatrix(unsigned int size);
+Type Rand(Type low, Type high) {
+  Type t = (Type)rand() / (Type)RAND_MAX;
+  return (1.0 - t) * low + t * high;
+}
 
 template <typename Type>
-void MulMatrixOpt(unsigned int size);
+void MulMatrix(unsigned int size) {
+  Type* A = new Type[size * size];
+  Type* B = new Type[size * size];
+  Type* C = new Type[size * size];
+  Type* Check = new Type[size * size];
 
-template <typename Type>
-void SumVectors(unsigned int size);
-
-void MonteCarlo(unsigned int size);
-void Convolution(unsigned int size, unsigned int radius);
-
-int main(int argc, char* argv[]) {
-//  std::string sizeStr = argv[2];
-//  std::string taskStr = argv[1];
-//  int size = atoi(sizeStr.c_str());
-//  int task = atoi(taskStr.c_str());
-
-	int task = 3;
-int size = 1600;
-
-  cout << size << endl;
-  cout << task << endl;
-
-  switch (task) {
-    case 1:
-      MulMatrixOpt<float>(size);
-      break;
-
-    case 2:
-      Convolution(size, 10);
-      break;
-
-    case 3:
-      MonteCarlo(size);
-      break;
-
-    default:
-      break;
+  for (unsigned int i = 0; i < size * size; i++) {
+    A[i] = Rand<Type>(-100, 100);
+    B[i] = Rand<Type>(-100, 100);
+    C[i] = 0;
+    Check[i] = 0;
   }
 
-  int tmp;
-  cout << "TYPE SOMETHING ";
+  for (int i = 0; i < size; i++) {
+    for (int j = 0; j < size; j++) {
+      for (int k = 0; k < size; ++k) {
+        Check[i * size + j] += A[i * size + k] * B[k * size + j];
+      }
+    }
+  }
 
-  cin >> tmp;
-  return 0;
+  unsigned int* ptr_size = &size;
+
+  Keeper keeper("kernel.txt");
+
+  Function MulMatrix("mul", "MulMatrix", true);
+  MulMatrix.SetArgument<Type>(A, {size, size});
+  MulMatrix.SetArgument<Type>(B, {size, size});
+  MulMatrix.SetArgument<Type>(C, {size, size}, true);
+  MulMatrix.SetArgument<unsigned int>(ptr_size, {1});
+
+  keeper.SetFunction(MulMatrix);
+
+ // keeper.SetTask("mul", "GPU", {0, size / 2}, {size, size});
+ // keeper.SetTask("mul", "CPU", {0, 0}, {size, size / 2});
+ // keeper.Start();
+
+  keeper.Info("DEV");
+
+  keeper.Test(10, "mul", 5, {size, size}, {}, {Check});
+
+
+  delete[] A;
+  delete[] B;
+  delete[] C;
 }
 
 template <typename Type>
@@ -55,17 +61,28 @@ void MulMatrixOpt(unsigned int size) {
   Type* A = new Type[size * size];
   Type* B = new Type[size * size];
   Type* C = new Type[size * size];
+  Type* Check = new Type[size * size];
 
-  unsigned int block = 16;
+  for (unsigned int i = 0; i < size * size; i++) {
+    A[i] = Rand<Type>(-100, 100);
+    B[i] = Rand<Type>(-100, 100);
+    C[i] = 0;
+    Check[i] = 0;
+  }
+
+  for (int i = 0; i < size; i++) {
+    for (int j = 0; j < size; j++) {
+      for (int k = 0; k < size; ++k) {
+        Check[i * size + j] += A[i * size + k] * B[k * size + j];
+      }
+    }
+  }
+
+
+  unsigned int block = 1;
 
   Type* a = NULL;
   Type* b = NULL;
-
-  for (unsigned int i = 0; i < size * size; i++) {
-    A[i] = 1;
-    B[i] = 2;
-    C[i] = 0;
-  }
 
   unsigned int* ptr_size = &size;
 
@@ -85,16 +102,14 @@ void MulMatrixOpt(unsigned int size) {
   queen.SetFunction(MulMatrixOpt);
 
   queen.Info("DEV");
-  queen.Test(10, "mul", 10, {size, size}, {block, block});
+  queen.Test(10, "mul", 5, {size, size}, {block, block}, {Check});
 
-  int error = 0;
-  for (unsigned int i = 0; i < size * size; i++) {
-    if (C[i] != size * 2) {
-      error++;
-    }
-  }
+  // queen.SetTask("mul", "GPU", {0, 0}, {size, size}, {block, block});
 
-  cout << "ERROR = " << error << endl;
+  //	queen.SetTasks("mul", "CPU", {32, 32}, {size, size}, {block, block});
+
+  //  queen.Start();
+
 
   delete[] A;
   delete[] B;
@@ -102,113 +117,6 @@ void MulMatrixOpt(unsigned int size) {
 }
 
 template <typename Type>
-void MulMatrix(unsigned int size) {
-  Type* A = new Type[size * size];
-  Type* B = new Type[size * size];
-  Type* C = new Type[size * size];
-
-  for (unsigned int i = 0; i < size * size; i++) {
-    A[i] = 1;
-    B[i] = 2;
-    C[i] = 0;
-  }
-
-  unsigned int* ptr_size = &size;
-
-  Keeper queen("kernel.txt");
-
-  Function MulMatrix("mul", "MulMatrix", true);
-  MulMatrix.SetArgument<Type>(A, {size, size});
-  MulMatrix.SetArgument<Type>(B, {size, size});
-  MulMatrix.SetArgument<Type>(C, {size, size}, true);
-  MulMatrix.SetArgument<unsigned int>(ptr_size, {1});
-
-  queen.SetFunction(MulMatrix);
-
-  queen.Info("DEV");
-  queen.Test(10, "mul", 10, {size, size});
-
-  for (unsigned int i = 0; i < size * size; i++) {
-    if (C[i] != size * 2) {
-      error++;
-    }
-  }
-
-  cout << "ERROR = " << error << endl;
-
-  delete[] A;
-  delete[] B;
-  delete[] C;
-}
-
-template <typename Type>
-void SumVectors(unsigned int size) {
-  Type* A = new Type[size];
-  Type* B = new Type[size];
-  Type* C = new Type[size];
-
-  for (unsigned int i = 0; i < size; i++) {
-    A[i] = 1;
-    B[i] = 2;
-    C[i] = 0;
-  }
-
-  unsigned int* ptr_size = &size;
-
-  Keeper queen("kernel.txt");
-
-  Function SumVectors("sum", "SumVectors");
-  SumVectors.SetArgument<Type>(A, {size});
-  SumVectors.SetArgument<Type>(B, {size});
-  SumVectors.SetArgument<Type>(C, {size});
-
-  queen.SetFunction(SumVectors);
-
-  queen.Test(10, "sum", 10, {size});
-
-  int error = 0;
-  for (unsigned int i = 0; i < size; i++) {
-    if (C[i] != 3) {
-      error++;
-    }
-  }
-  cout << "ERROR = " << error << endl;
-
-  delete[] A;
-  delete[] B;
-  delete[] C;
-}
-
-void MonteCarlo(unsigned int size) {
-  int* A = new int[size];
-
-  for (unsigned int i = 0; i < size; i++) {
-    A[i] = 0;
-  }
-
-  unsigned int* ptr_size = &size;
-
-  Keeper queen("kernel.txt");
-
-  Function MonteCarlo("mc", "MonteCarlo", true);
-  MonteCarlo.SetArgument<int>(A, {size});
-  MonteCarlo.SetArgument<unsigned int*>(ptr_size, {1});
-
-  queen.SetFunction(MonteCarlo);
-
-  queen.Test(10, "mc", 10, {size});
-
-  double sum = 0;
-  for (unsigned int i = 0; i < size; i++) {
-    sum += double(A[i]) / size;
-  }
-  double fraction_in_circle = sum / size,
-         pi = 3 * sqrt(3) / 2 + fraction_in_circle * 6.0 * (1.0 - sqrt(3) / 2);
-  cout << "PI = " << pi << endl;
-
-  delete[] A;
-}
-
 void Convolution(unsigned int size, unsigned int radius) {
   float* A = new float[size * size];
   float* B = new float[size * size];
@@ -230,16 +138,49 @@ void Convolution(unsigned int size, unsigned int radius) {
 
   Function Convolution("conv", "Convolution", true);
   Convolution.SetArgument<float>(A, {size, size});
-  Convolution.SetArgument<float>(B, {size, size});
+  Convolution.SetArgument<float>(B, {size, size}, true);
   Convolution.SetArgument<unsigned int>(ptr_size, {1});
   Convolution.SetArgument<float>(kern, {2 * radius + 1, 2 * radius + 1});
   Convolution.SetArgument<unsigned int>(ptr_radius, {1});
 
   queen.SetFunction(Convolution);
 
-  queen.Test(10, "conv", 10, {size, size});
+  queen.Test(10, "conv", 5, {size, size});
 
   delete[] A;
   delete[] B;
   delete[] kern;
+}
+
+int main(int argc, char* argv[]) {
+  // std::string sizeStr = argv[2];
+  // std::string taskStr = argv[1];
+  // int size = atoi(sizeStr.c_str());
+  // int task = atoi(taskStr.c_str());
+
+  int task = 1;
+  unsigned int size = 2000;
+
+  switch (task) {
+    case 1:
+      Convolution<int>(size, 1000);
+      break;
+
+    case 2:
+      MulMatrix<double>(size);
+      break;
+
+    case 3:
+      MulMatrixOpt<double>(size);
+      break;
+
+    default:
+      break;
+  }
+
+  int tmp;
+  cout << "TYPE SOMETHING ";
+
+  cin >> tmp;
+  return 0;
 }
