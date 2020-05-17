@@ -1672,8 +1672,8 @@ int Keeper::Test(unsigned int repeat_count, string function_id,
       if (time_x[idx_min] > time_x[i]) idx_min = i;
     }
 
-    double cpu_part = (1 - (time_cpu / (time_cpu + time_gpu))) * 100;
-    double gpu_part = 100 - cpu_part;
+    int cpu_part = (1 - (time_cpu / (time_cpu + time_gpu))) * 100;
+    int gpu_part = 100 - cpu_part;
 
     try_time_x = 0;
 
@@ -1782,7 +1782,7 @@ int Keeper::Test(unsigned int repeat_count, string function_id,
     cout << "GPU: WORK = " << try_time_xgpu_work / count
          << " READ = " << try_time_xgpu_read / count << endl;
 
-    cout << "ALL_WORK = " << try_time_x << endl;
+    cout << "ALL_WORK = " << try_time_x << endl << endl;
 
     cout << "BEST:";
     cout << 100 - idx_min * step << "% CPU " << idx_min * step
