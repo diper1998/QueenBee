@@ -48,7 +48,7 @@ kernel void MulMatrixOpt(global  double* a, global double* b,
   }
 
   c[i * size + j] = sum;
-  barrier(CLK_GLOBAL_MEM_FENCE);
+
 
 
  //printf("%d ", c[i*size+j]);
@@ -56,8 +56,8 @@ kernel void MulMatrixOpt(global  double* a, global double* b,
 }
 
 
-kernel void Convolution(global float* in, global float* out, 
-			constant int* ptr_size, global float* kern, 
+kernel void Convolution(global double* in, global double* out, 
+			constant int* ptr_size, global double* kern, 
 				constant int* ptr_radius){
 
 int i = get_global_id(1);//y
@@ -68,7 +68,7 @@ int radius = *ptr_radius;
 
 int r;
 int center = (2*radius+1)*(radius)+radius;
-float sum = in[i*size+j]*kern[center];
+double sum = in[i*size+j]*kern[center];
 out[i*size+j] = 0;
 for(r = 1; r <= radius; ++r){
 
@@ -87,3 +87,66 @@ sum+= in[i*size+(j+r)]*kern[center + r] + in[i*size+(j-r)]*kern[center-r]
 out[i*size+j] = sum;
 
 } 
+
+
+double f_(double x)
+{
+    return fabs(sin(x)*cos(x)*exp(1/x)*log(x)*cbrt(x)*sqrt(fabs(x)))+1;
+}
+
+double f(double x, double y)
+{
+    return f_(x*y)/f_(x+y)+f_(x/y)/f_(pow(y,x))+f_(y/x)/f_(pow(x,y)) + f_(x)/f_(y);
+}
+
+
+double trap(double a, double b, double c, double d)
+{
+   
+    return ((b-a)*(d-c)/36)*(f(a,c)+f(a,d)+f(b,c)+f(b,d)+
+			4*(f(a, c/2+d/2)+f(b, c/2+d/2)+f(a/2+b/2, c)+f(a/2+b/2, d))+
+			16*f(a/2+b/2, c/2+ d/2));
+}
+
+kernel void Integration(
+    constant double* ptr_a,
+    constant double* ptr_b,
+	 constant double* ptr_c,
+	 constant double* ptr_d,
+	 constant unsigned int* ptr_split,
+    global double* sums)
+{
+	
+	double a = *ptr_a;
+	double b = *ptr_b;
+	double c = *ptr_c;
+	double d = *ptr_d;
+	unsigned int split = *ptr_split;
+
+
+
+    int x_id = get_global_id(0);
+	int y_id = get_global_id(1);
+
+	sums[x_id*split+y_id] = 0;
+
+    double a1 = a+((b-a)/split)*get_global_id(0);
+    double b1 = a1+(b-a)/split;
+	double c1 = c+((d-c)/split)*get_global_id(1);
+	double d1 = c1+(d-c)/split;
+  
+    sums[x_id*split+y_id] = trap(a1, b1, c1, d1) ;
+
+}
+
+
+kernel void DotProduct(global const double* A, global const double* B,
+                      global double* C, constant int* ptrSize) {
+  int i = get_global_id(0);
+  int size = *ptrSize;
+
+
+ C[i] = A[i]*B[i];
+   
+
+}
