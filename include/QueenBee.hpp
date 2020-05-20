@@ -156,7 +156,7 @@ class Keeper {
  public:
   Keeper();
   Keeper(string kernel_file_name);
-  void Info(string mode = "ALL");
+  string Info(string mode = "ALL");
   int SetFunction(Function& function);
   int SetTask(string function_id, string parallel_method,
               vector<unsigned int> offset, vector<unsigned int> global_range,

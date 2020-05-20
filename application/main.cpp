@@ -2,6 +2,11 @@
 #include <thread>
 #include "QueenBee.hpp"
 
+template <typename Type>
+Type Rand(Type low, Type high) {
+  Type t = (Type)rand() / (Type)RAND_MAX;
+  return (1.0 - t) * low + t * high;
+}
 
 template <typename Type>
 void DotProduct(unsigned int size) {
@@ -28,7 +33,7 @@ void DotProduct(unsigned int size) {
   DotProduct.SetArgument<unsigned int*>(ptr_size, {1});
 
   keeper.SetFunction(DotProduct);
-  keeper.Test(10, "dot", 5, {size}, {}, {Check});
+  keeper.Test(10, "dot", 10, {size}, {}, {Check});
 
   Type dot = 0;
 
@@ -36,12 +41,6 @@ void DotProduct(unsigned int size) {
     dot += C[i];
   }
   cout << "Dot product = " << dot << endl;
-}
-
-template <typename Type>
-Type Rand(Type low, Type high) {
-  Type t = (Type)rand() / (Type)RAND_MAX;
-  return (1.0 - t) * low + t * high;
 }
 
 template <typename Type>
@@ -70,7 +69,7 @@ void MulMatrix(unsigned int size) {
 
   Keeper keeper("kernel.txt");
 
-  Function MulMatrix("mul", "MulMatrix", true);
+  Function MulMatrix("mul", "MulMatrix", false);
   MulMatrix.SetArgument<Type>(A, {size, size});
   MulMatrix.SetArgument<Type>(B, {size, size});
   MulMatrix.SetArgument<Type>(C, {size, size}, true);
@@ -78,14 +77,13 @@ void MulMatrix(unsigned int size) {
 
   keeper.SetFunction(MulMatrix);
 
- // keeper.SetTask("mul", "GPU", {0, size / 2}, {size, size});
- // keeper.SetTask("mul", "CPU", {0, 0}, {size, size / 2});
- // keeper.Start();
+  // keeper.SetTask("mul", "GPU", {0, size / 2}, {size, size});
+  // keeper.SetTask("mul", "CPU", {0, 0}, {size, size / 2});
+  // keeper.Start();
 
-  keeper.Info("DEV");
+  //  keeper.Info("DEV");
 
-  keeper.Test(10, "mul", 5, {size, size}, {}, {Check});
-
+  keeper.Test(10, "mul", 10, {size, size}, {}, {Check});
 
   delete[] A;
   delete[] B;
@@ -114,8 +112,7 @@ void MulMatrixOpt(unsigned int size) {
     }
   }
 
-
-  unsigned int block = 1;
+  unsigned int block = 10;
 
   Type* a = NULL;
   Type* b = NULL;
@@ -137,15 +134,15 @@ void MulMatrixOpt(unsigned int size) {
   MulMatrixOpt.SetArgument<unsigned int*>(ptr_block, {1});
   keeper.SetFunction(MulMatrixOpt);
 
-  keeper.Info("DEV");
-  keeper.Test(10, "mul", 5, {size, size}, {block, block}, {Check});
+  keeper.Test(10, "mul", 10, {size, size}, {block, block}, {Check});
 
-  // queen.SetTask("mul", "GPU", {0, 0}, {size, size}, {block, block});
+  //  keeper.SetTask("mul", "GPU", {0, 0}, {size, size}, {block, block});
 
   //	queen.SetTasks("mul", "CPU", {32, 32}, {size, size}, {block, block});
 
-  //  queen.Start();
+  //   keeper.Start();
 
+  for (int i = 0; i < size * size; i++) cout << C[i] << " " << Check[i] << endl;
 
   delete[] A;
   delete[] B;
@@ -181,25 +178,24 @@ void Convolution(unsigned int size, unsigned int radius) {
 
   keeper.SetFunction(Convolution);
 
-  keeper.Test(10, "conv", 5, {size, size});
+  keeper.Test(10, "conv", 10, {size, size});
 
   delete[] A;
   delete[] B;
   delete[] kern;
 }
 
-
 template <typename Type>
-void Integration(double a, double b, double c, double d, unsigned int size) {
+void Integration(Type a, Type b, Type c, Type d, unsigned int size) {
   Type* sums = new Type[size * size];
   for (int i = 0; i < size * size; i++) {
     sums[i] = 0;
   }
 
-  double* ptr_a = &a;
-  double* ptr_b = &b;
-  double* ptr_c = &c;
-  double* ptr_d = &d;
+  Type* ptr_a = &a;
+  Type* ptr_b = &b;
+  Type* ptr_c = &c;
+  Type* ptr_d = &d;
   unsigned int* ptr_split = &size;
 
   Keeper keeper("kernel.txt");
@@ -213,16 +209,14 @@ void Integration(double a, double b, double c, double d, unsigned int size) {
   Integration.SetArgument<Type>(sums, {size, size}, true);
 
   keeper.SetFunction(Integration);
-  keeper.Test(10, "integ", 5, {size, size});
+  // keeper.Test(10, "integ", 10, {size, size});
 
-  // keeper.SetTask("integ", "GPU", {0, 0}, {size, size});
+ // keeper.SetTask("integ", "ALL", {0, 0}, {size, size});
 
-  // keeper.SetTasks("integ", "ALL", {size/2, size/2}, {size, size});
+  keeper.SetTasks("integ", "ALL", {size / 2, size / 2}, {size, size});
 
-  // keeper.Start("DYNAMIC");
-
+  keeper.Start("DYNAMIC");
   keeper.Info("TIME");
-
   Type I = 0;
 
   for (int i = 0; i < size * size; i++) {
@@ -231,44 +225,38 @@ void Integration(double a, double b, double c, double d, unsigned int size) {
   cout << "Integral = " << I << endl;
 }
 
-
 int main(int argc, char* argv[]) {
- 
-    std::string taskStr = argv[1];
+  // std::string taskStr = argv[1];
+  //
+  // std::string sizeStr = argv[2];
+  // int size = atoi(sizeStr.c_str());
+  //
+  // int task = atoi(taskStr.c_str());
 
-	std::string sizeStr = argv[2];
- 
-	 int size = atoi(sizeStr.c_str());
-  	
-	 int task = atoi(taskStr.c_str());
+  unsigned int size = 4000;
 
-	// int size = 1600;
-	  
-    // int task = 4;
-
+  int task = 5;
 
   switch (task) {
-   
-	case 1:
-      DotProduct<double>(size);
-          break;
+    case 1:
+      DotProduct<float>(size);
+      break;
 
     case 2:
-      MulMatrix<double>(size);
+      MulMatrix<int>(size);
       break;
 
     case 3:
-      MulMatrixOpt<double>(size);
+      MulMatrixOpt<float>(size);
       break;
 
     case 4:
-      Convolution<double>(size, size / 4);
+      Convolution<float>(size, size / 4);
       break;
 
-	case 5:
-      Integration<double>(1, 100, 1, 100, size);
+    case 5:
+      Integration<double>(1, 1000, 1, 1000, size);
       break;
-
 
     default:
       break;

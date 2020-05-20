@@ -1,28 +1,32 @@
 
-kernel void MulMatrix(global const double* A, global const double* B,
-                      global double* C, constant int* ptrSize) {
-  int i = get_global_id(1);
-  int j = get_global_id(0);
-  int size = *ptrSize;
+
+
+kernel void MulMatrix(global const int* A, global const int* B,
+                      global int* C, constant unsigned int* ptrSize) {
+  int i = get_global_id(0);
+  int j = get_global_id(1);
+  unsigned int size = *ptrSize;
 
 
  C[i*size+j] = 0;
-  for (int k = 0; k < size; ++k)
+ 
+  for (unsigned int k = 0; k < size; ++k){
     C[i * size + j] += A[i * size + k] * B[k * size + j];
+	
+	 }
 
 //barrier(CLK_GLOBAL_MEM_FENCE);
-//printf("%i ", C[i * size + j]);
-
+ //   printf("%f \n", B[i * size + j]);
 }
 
 
-kernel void MulMatrixOpt(global  double* a, global double* b,
-                         global double* c, constant int* size_ptr,
-                         local double* a_local, local double* b_local,
+kernel void MulMatrixOpt(global  float* a, global float* b,
+                         global float* c, constant int* size_ptr,
+                         local float* a_local, local float* b_local,
                          constant int* blocksize_ptr) {
   int j = get_global_id(0);
   int i = get_global_id(1);
-  barrier(CLK_GLOBAL_MEM_FENCE);
+
 
   int size = *size_ptr;
   int BLOCK_SIZE = *blocksize_ptr;
@@ -30,7 +34,7 @@ kernel void MulMatrixOpt(global  double* a, global double* b,
   int localJ = get_local_id(0);
   int localI = get_local_id(1);
 
-  double sum = 0.0f;
+  float sum = 0.0f;
 
 
   for (int p = 0; p < size / BLOCK_SIZE; ++p) {
@@ -56,8 +60,8 @@ kernel void MulMatrixOpt(global  double* a, global double* b,
 }
 
 
-kernel void Convolution(global double* in, global double* out, 
-			constant int* ptr_size, global double* kern, 
+kernel void Convolution(global float* in, global float* out, 
+			constant int* ptr_size, global float* kern, 
 				constant int* ptr_radius){
 
 int i = get_global_id(1);//y
@@ -68,7 +72,7 @@ int radius = *ptr_radius;
 
 int r;
 int center = (2*radius+1)*(radius)+radius;
-double sum = in[i*size+j]*kern[center];
+float sum = in[i*size+j]*kern[center];
 out[i*size+j] = 0;
 for(r = 1; r <= radius; ++r){
 
@@ -91,12 +95,14 @@ out[i*size+j] = sum;
 
 double f_(double x)
 {
-    return fabs(sin(x)*cos(x)*exp(1/x)*log(x)*cbrt(x)*sqrt(fabs(x)))+1;
+    return fabs(sin(x)*cos(x)*log(x)*cbrt(x)*sqrt(fabs(x)))/(x+1);
+    
 }
 
 double f(double x, double y)
 {
-    return f_(x*y)/f_(x+y)+f_(x/y)/f_(pow(y,x))+f_(y/x)/f_(pow(x,y)) + f_(x)/f_(y);
+   // return f_(x*y)*f_(x+y)+f_(x/y)*f_(pow(y,x))+f_(y/x)*f_(pow(x,y)) + f_(x)*f_(y);
+   return f_(x)*f_(y)*f_(x+y)*f_(x/y)*f_(y/x)*f_(pow(x,1/y))*f_(pow(y,1/x))+f_(x*y);
 }
 
 
@@ -111,9 +117,9 @@ double trap(double a, double b, double c, double d)
 kernel void Integration(
     constant double* ptr_a,
     constant double* ptr_b,
-	 constant double* ptr_c,
-	 constant double* ptr_d,
-	 constant unsigned int* ptr_split,
+	constant double* ptr_c,
+	constant double* ptr_d,
+	constant unsigned int* ptr_split,
     global double* sums)
 {
 	
@@ -140,8 +146,8 @@ kernel void Integration(
 }
 
 
-kernel void DotProduct(global const double* A, global const double* B,
-                      global double* C, constant int* ptrSize) {
+kernel void DotProduct(global const float* A, global const float* B,
+                      global float* C, constant int* ptrSize) {
   int i = get_global_id(0);
   int size = *ptrSize;
 

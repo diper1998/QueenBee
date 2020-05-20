@@ -238,11 +238,14 @@ NDRange Keeper::GetGlobalRange(vector<unsigned int> global_range,
   return range;
 }
 
-void Keeper::Info(string mode) {
+string Keeper::Info(string mode) {
+  std::stringstream ss;
+  ss << "";
+
   if (mode == "ALL" || mode == "DEV") {
     for (const auto& g : gardens) {
       cout << g.platform.getInfo<CL_PLATFORM_NAME>() << endl;
-
+      ss << g.platform.getInfo<CL_PLATFORM_NAME>();
       for (const auto& d : g.devices) {
         cout << d.getInfo<CL_DEVICE_TYPE>() << ": "
              << d.getInfo<CL_DEVICE_NAME>() << endl
@@ -254,6 +257,18 @@ void Keeper::Info(string mode) {
              << "MAX CLOCK FREQUENCY: "
              << d.getInfo<CL_DEVICE_MAX_CLOCK_FREQUENCY>() / 1000.0 << "GHz"
              << endl;
+
+        ss << d.getInfo<CL_DEVICE_TYPE>() << ": "
+           << d.getInfo<CL_DEVICE_NAME>();
+        ss << endl;
+        ss << "MAX COMPUTE UNITS: " << d.getInfo<CL_DEVICE_MAX_COMPUTE_UNITS>();
+        ss << endl;
+        ss << "GLOBAL MEM SIZE: ";
+        ss << d.getInfo<CL_DEVICE_GLOBAL_MEM_SIZE>() / 1000000000.0 << " GB";
+        ss << endl;
+        ss << "MAX CLOCK FREQUENCY: ";
+        ss << d.getInfo<CL_DEVICE_MAX_CLOCK_FREQUENCY>() / 1000.0 << "GHz";
+        ss << endl;
       }
     }
   }
@@ -266,6 +281,10 @@ void Keeper::Info(string mode) {
         cout << endl
              << h.program.getBuildInfo<CL_PROGRAM_BUILD_LOG>(h.device.back())
              << endl;
+
+        ss << endl
+           << h.program.getBuildInfo<CL_PROGRAM_BUILD_LOG>(h.device.back())
+           << endl;
       }
     }
   }
@@ -277,12 +296,18 @@ void Keeper::Info(string mode) {
     for (auto& g : gardens) {
       for (auto& h : g.hives) {
         cout << h.name << endl;
+        ss << h.name << endl;
+
         h.all_work_time = 0;
         h.all_read_time = 0;
 
         for (int i = 0; i < h.work_time.size(); i++) {
           cout << i << ": WORK = " << h.work_time[i]
                << " READ = " << h.read_time[i] << endl;
+
+          ss << i << ": WORK = " << h.work_time[i]
+             << " READ = " << h.read_time[i] << endl;
+
           h.all_work_time += h.work_time[i];
           h.all_read_time += h.read_time[i];
         }
@@ -299,13 +324,22 @@ void Keeper::Info(string mode) {
       for (auto& h : g.hives) {
         cout << h.name << ": ALL_WORK = " << h.all_work_time
              << " ALL_READ = " << h.all_read_time << endl;
+
+        ss << h.name << ": ALL_WORK = " << h.all_work_time;
+        ss << " ALL_READ = " << h.all_read_time << endl;
       }
     }
 
     cout << "ALL time: " << all_time << endl;
+
+    ss << "ALL time: " << all_time << endl;
   }
 
   cout << endl;
+
+  // ss >> info;
+
+  return ss.str();
 }
 
 int Keeper::SetFunction(Function& function) {
@@ -651,9 +685,9 @@ int Keeper::Read(Hive& hive, Function& function, Task& task) {
 int Keeper::CompareValue(void* first, void* second, unsigned int position,
                          string type) {
   if (type == "float") {
-    if (*(static_cast<float*>(first) + position) ==
-        *(static_cast<float*>(second) + position)) {
-      return 1;
+    if (fabsf(*(static_cast<float*>(first) + position) -
+             *(static_cast<float*>(second) + position)) < 0.01) {
+		return 1;
     } else {
       return 0;
     }
@@ -661,7 +695,7 @@ int Keeper::CompareValue(void* first, void* second, unsigned int position,
 
   if (type == "double") {
     if (fabs(*(static_cast<double*>(first) + position) -
-             *(static_cast<double*>(second) + position)) < 0.00000001) {
+             *(static_cast<double*>(second) + position)) < 0.0001) {
       return 1;
     } else {
       return 0;
@@ -758,6 +792,7 @@ int Keeper::Test(unsigned int repeat_count, string function_id,
                  vector<void*> compare_result) {
   std::ofstream perfomance_static;
   std::ofstream perfomance_dynamic;
+  std::ofstream perfomance_results;
   std::stringstream ss;
 
   if (global_range.size() == 1) ss << global_range[0];
@@ -766,9 +801,11 @@ int Keeper::Test(unsigned int repeat_count, string function_id,
 
   std::string str;
   ss >> str;
-  perfomance_static.open(string("performance_static_") + function_id + str +
+  perfomance_static.open(function_id + str + string("_static") +
                          string(".txt"));
-  perfomance_dynamic.open(string("performance_dynamic_") + function_id + str +
+  perfomance_dynamic.open(function_id + str +  string("_dynamic") +
+                          string(".txt"));
+  perfomance_results.open(function_id + str + string("_results") +
                           string(".txt"));
 
   vector<double> time_x;
@@ -981,7 +1018,7 @@ int Keeper::Test(unsigned int repeat_count, string function_id,
 
     cout << endl;
 
-    cout << "X:" << endl;
+    cout << "X" << endl;
     for (unsigned int i = step; i < 100; i += step) {
       averege_time = 0;
       for (int n = 0; n < count; n++) {
@@ -1106,7 +1143,7 @@ int Keeper::Test(unsigned int repeat_count, string function_id,
     time_y.push_back(time_cpu);
     perfomance_static << "0\t" << time_cpu << endl;
 
-    cout << "Y:" << endl;
+    cout << "Y" << endl;
     for (unsigned int i = step; i < 100; i += step) {
       averege_time = 0;
       for (int n = 0; n < count; n++) {
@@ -1306,7 +1343,7 @@ int Keeper::Test(unsigned int repeat_count, string function_id,
 
     try_time_y /= count;
 
-    Info("DEV");
+    perfomance_results << Info("DEV");
 
     cout << "TEST RESULTS:" << endl << endl;
 
@@ -1350,7 +1387,7 @@ int Keeper::Test(unsigned int repeat_count, string function_id,
 
     cout << endl;
 
-    cout << "BEST" << endl;
+    cout << "BEST:" << endl;
     cout << "CPU PART = " << cpu_part << "%" << endl;
     cout << "CPU TIME = " << (cpu_part * time_cpu) / 100.0 << endl << endl;
 
@@ -1359,7 +1396,7 @@ int Keeper::Test(unsigned int repeat_count, string function_id,
     cout << endl;
     cout << "TRY IT:" << endl << endl;
 
-    cout << "X: " << endl;
+    cout << "X " << endl;
     cout << cpu_part << "% CPU " << gpu_part << "%  GPU: " << endl;
     cout << "CPU: WORK = " << try_time_xcpu_work / count
          << " READ = " << try_time_xcpu_read / count << endl;
@@ -1369,7 +1406,7 @@ int Keeper::Test(unsigned int repeat_count, string function_id,
 
     cout << "ALL_WORK = " << try_time_x << endl;
 
-    cout << "Y: " << endl;
+    cout << "Y " << endl;
     cout << cpu_part << "% CPU " << gpu_part << "%  GPU: " << endl;
     cout << "CPU: WORK = " << try_time_ycpu_work / count
          << " READ = " << try_time_ycpu_read / count << endl;
@@ -1377,7 +1414,7 @@ int Keeper::Test(unsigned int repeat_count, string function_id,
     cout << "GPU: WORK = " << try_time_ygpu_work / count
          << " READ = " << try_time_ygpu_read / count << endl;
 
-    cout << "ALL_WORK = " << try_time_y << endl;
+    cout << "ALL_WORK = " << try_time_y << endl << endl;
 
     int idx_min = 0;
     int idy_min = 0;
@@ -1392,19 +1429,88 @@ int Keeper::Test(unsigned int repeat_count, string function_id,
     cout << "STATIC:" << endl << endl;
 
     cout << "BEST:" << endl;
-    if (time_x[idx_min] < time_y[idy_min]) {
-      cout << "X: " << endl;
-      cout << 100 - idx_min * step << "% CPU " << idx_min * step
-           << "% GPU: " << endl;
-      cout << "TIME: " << time_x[idx_min] << endl;
-    } else {
-      cout << "Y: " << endl;
-      cout << 100 - idy_min * step << "% CPU " << idy_min * step
-           << "% GPU: " << endl;
-      cout << "TIME: " << time_y[idy_min] << endl;
-    }
+
+    stringstream best;
+
+    cout << "X " << endl;
+    cout << 100 - idx_min * step << "% CPU " << idx_min * step
+         << "% GPU: " << endl;
+    cout << "TIME: " << time_x[idx_min] << endl;
+
+    cout << "Y " << endl;
+    cout << 100 - idy_min * step << "% CPU " << idy_min * step
+         << "% GPU: " << endl;
+    cout << "TIME: " << time_y[idy_min] << endl;
 
     if (error_flag) cout << endl << "ERROR" << endl;
+
+    perfomance_results << endl;
+    perfomance_results << "TEST RESULTS:" << endl << endl;
+    perfomance_results << "DYNAMIC:" << endl << endl;
+    perfomance_results << "PERCENT: " << best_percent << "%" << endl;
+    perfomance_results << "TIME: " << best_time_dynamic << endl << endl;
+    perfomance_results << "ANALYTIC:" << endl << endl;
+    perfomance_results << "100% CPU" << endl;
+    perfomance_results << "CPU: WORK = " << time_100cpu_work / count;
+    perfomance_results << " READ = " << time_100cpu_read / count << endl;
+    perfomance_results << "ALL_WORK = " << time_cpu << endl << endl;
+    perfomance_results << "100% GPU" << endl;
+    perfomance_results << "GPU: WORK = " << time_100gpu_work / count;
+    perfomance_results << " READ = " << time_100gpu_read / count << endl;
+    perfomance_results << "ALL_WORK = " << time_gpu << endl << endl;
+    perfomance_results << "X" << endl;
+    perfomance_results << "50% CPU 50% GPU" << endl;
+    perfomance_results << "CPU: WORK = " << time_x50cpu_work / count;
+    perfomance_results << " READ = " << time_x50cpu_read / count << endl;
+    perfomance_results << "GPU: WORK = " << time_x50gpu_work / count;
+    perfomance_results << " READ = " << time_x50gpu_read / count << endl;
+    perfomance_results << "ALL_WORK = " << time_x50 / count << endl << endl;
+
+    perfomance_results << "Y" << endl;
+    perfomance_results << "50% CPU 50% GPU" << endl;
+    perfomance_results << "CPU: WORK = " << time_y50cpu_work / count;
+    perfomance_results << " READ = " << time_y50cpu_read / count << endl;
+    perfomance_results << "GPU: WORK = " << time_y50gpu_work / count;
+    perfomance_results << " READ = " << time_y50gpu_read / count << endl;
+    perfomance_results << "ALL_WORK = " << time_y50 / count << endl;
+    perfomance_results << endl;
+    perfomance_results << "BEST: " << endl;
+    perfomance_results << "CPU PART: " << cpu_part << "%" << endl;
+    perfomance_results << "CPU TIME: " << (cpu_part * time_cpu) / 100.0 << endl
+                       << endl;
+    perfomance_results << "GPU PART: " << gpu_part << "%" << endl;
+    perfomance_results << "GPU TIME: " << (gpu_part * time_gpu) / 100.0 << endl
+                       << endl;
+    perfomance_results << "TRY IT:" << endl << endl;
+    perfomance_results << "X" << endl;
+    perfomance_results << cpu_part << "% CPU " << gpu_part
+                       << "%  GPU: " << endl;
+    perfomance_results << "CPU: WORK = " << try_time_xcpu_work / count;
+    perfomance_results << " READ = " << try_time_xcpu_read / count << endl;
+    perfomance_results << "GPU: WORK = " << try_time_xgpu_work / count;
+    perfomance_results << " READ = " << try_time_xgpu_read / count << endl;
+    perfomance_results << "ALL_WORK = " << try_time_x << endl << endl;
+
+    perfomance_results << "Y" << endl;
+    perfomance_results << cpu_part << "% CPU " << gpu_part
+                       << "%  GPU: " << endl;
+    perfomance_results << "CPU: WORK = " << try_time_ycpu_work / count;
+    perfomance_results << " READ = " << try_time_ycpu_read / count << endl;
+    perfomance_results << "GPU: WORK = " << try_time_ygpu_work / count;
+    perfomance_results << " READ = " << try_time_ygpu_read / count << endl;
+    perfomance_results << "ALL_WORK = " << try_time_y << endl << endl;
+
+    perfomance_results << "STATIC:" << endl << endl;
+
+    perfomance_results << "BEST:" << endl;
+    perfomance_results << "X" << endl;
+    perfomance_results << 100 - idx_min * step << "% CPU " << idx_min * step;
+    perfomance_results << "% GPU: " << endl;
+    perfomance_results << "TIME: " << time_x[idx_min] << endl;
+    perfomance_results << "Y" << endl;
+    perfomance_results << 100 - idy_min * step << "% CPU " << idy_min * step;
+    perfomance_results << "% GPU: " << endl;
+    perfomance_results << "TIME: " << time_y[idy_min] << endl;
 
     cout << endl;
   }
@@ -1574,7 +1680,7 @@ int Keeper::Test(unsigned int repeat_count, string function_id,
 
     cout << endl;
 
-    cout << "X:" << endl;
+    cout << "X" << endl;
     for (unsigned int i = 10; i < 100; i += 10) {
       averege_time = 0;
       for (int n = 0; n < count; n++) {
@@ -1726,14 +1832,15 @@ int Keeper::Test(unsigned int repeat_count, string function_id,
 
     try_time_x /= count;
 
-    Info("DEV");
+    perfomance_results << Info("DEV");
 
     cout << "TEST RESULTS:" << endl << endl;
 
     cout << "DYNAMIC:" << endl << endl;
+
     cout << "PERCENT: " << best_percent << "%" << endl;
-    cout << "TIME: " << best_time_dynamic << endl;
-    cout << endl;
+
+    cout << "TIME: " << best_time_dynamic << endl << endl;
 
     cout << "ANALYTIC:" << endl << endl;
 
@@ -1753,7 +1860,7 @@ int Keeper::Test(unsigned int repeat_count, string function_id,
     cout << "50% CPU 50% GPU" << endl;
     cout << "CPU: WORK = " << time_x50cpu_work / count
          << " READ = " << time_x50cpu_read / count << endl;
-    cout << "GPU: WORK = " << time_y50gpu_work / count
+    cout << "GPU: WORK = " << time_x50gpu_work / count
          << " READ = " << time_x50gpu_read / count << endl;
 
     cout << "ALL_WORK = " << time_x50 / count << endl;
@@ -1774,7 +1881,7 @@ int Keeper::Test(unsigned int repeat_count, string function_id,
 
     cout << "TRY IT:" << endl << endl;
 
-    cout << "X: " << endl;
+    cout << "X" << endl;
     cout << cpu_part << "% CPU " << gpu_part << "%  GPU: " << endl;
     cout << "CPU: WORK = " << try_time_xcpu_work / count
          << " READ = " << try_time_xcpu_read / count << endl;
@@ -1784,7 +1891,7 @@ int Keeper::Test(unsigned int repeat_count, string function_id,
 
     cout << "ALL_WORK = " << try_time_x << endl << endl;
 
-    cout << "BEST:";
+    cout << "BEST:" << endl;
     cout << 100 - idx_min * step << "% CPU " << idx_min * step
          << "% GPU: " << endl;
 
@@ -1792,9 +1899,52 @@ int Keeper::Test(unsigned int repeat_count, string function_id,
 
     if (error_flag) cout << endl << "ERROR" << endl;
 
+    perfomance_results << endl;
+    perfomance_results << "TEST RESULTS:" << endl << endl;
+    perfomance_results << "DYNAMIC:" << endl << endl;
+    perfomance_results << "PERCENT: " << best_percent << "%" << endl;
+    perfomance_results << "TIME: " << best_time_dynamic << endl << endl;
+    perfomance_results << "ANALYTIC:" << endl << endl;
+    perfomance_results << "100% CPU" << endl;
+    perfomance_results << "CPU: WORK = " << time_100cpu_work / count;
+    perfomance_results << " READ = " << time_100cpu_read / count << endl;
+    perfomance_results << "ALL_WORK = " << time_cpu << endl << endl;
+    perfomance_results << "100% GPU" << endl;
+    perfomance_results << "GPU: WORK = " << time_100gpu_work / count;
+    perfomance_results << " READ = " << time_100gpu_read / count << endl;
+    perfomance_results << "ALL_WORK = " << time_gpu << endl << endl;
+    perfomance_results << "X" << endl;
+    perfomance_results << "50% CPU 50% GPU" << endl;
+    perfomance_results << "CPU: WORK = " << time_x50cpu_work / count;
+    perfomance_results << " READ = " << time_x50cpu_read / count << endl;
+    perfomance_results << "GPU: WORK = " << time_x50gpu_work / count;
+    perfomance_results << " READ = " << time_x50gpu_read / count << endl;
+    perfomance_results << "ALL_WORK = " << time_x50 << endl << endl;
+    perfomance_results << "STATIC:" << endl << endl;
+    perfomance_results << "CPU PART: " << cpu_part << "%" << endl;
+    perfomance_results << "CPU TIME: " << (cpu_part * time_cpu) / 100.0 << endl
+                       << endl;
+    perfomance_results << "GPU PART: " << gpu_part << "%" << endl;
+    perfomance_results << "GPU TIME: " << (gpu_part * time_gpu) / 100.0 << endl
+                       << endl;
+    perfomance_results << "TRY IT:" << endl << endl;
+    perfomance_results << "X " << endl;
+    perfomance_results << cpu_part << "% CPU " << gpu_part
+                       << "%  GPU: " << endl;
+    perfomance_results << "CPU: WORK = " << try_time_xcpu_work / count;
+    perfomance_results << " READ = " << try_time_xcpu_read / count << endl;
+    perfomance_results << "GPU: WORK = " << try_time_xgpu_work / count;
+    perfomance_results << " READ = " << try_time_xgpu_read / count << endl;
+    perfomance_results << "ALL_WORK = " << try_time_x << endl << endl;
+    perfomance_results << "BEST:" << endl;
+    perfomance_results << 100 - idx_min * step << "% CPU " << idx_min * step;
+    perfomance_results << "% GPU: " << endl;
+    perfomance_results << "TIME:" << time_x[idx_min] << endl;
+
     cout << endl;
   }
   perfomance_static.close();
   perfomance_dynamic.close();
+  perfomance_results.close();
   return 0;
 }
