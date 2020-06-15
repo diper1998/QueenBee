@@ -1,92 +1,161 @@
-#define CL_USE_DEPRECATED_OPENCL_1_2_APIS
-
-#define __CL_ENABLE_EXCEPTIONS
-
-#if defined(__APPLE__) || defined(__MACOSX)
-#include <OpenCL/cl.hpp>
-#else
-#include <CL/cl.hpp>
-#endif
-#include <cstdio>
-#include <cstdlib>
-#include <iostream>
-#include <vector>
 #include "QueenBee.hpp"
 
-const char* helloStr = "__kernel void "
-"hello(void) "
-"{ "
-"  "
-"} ";
+template <typename Type>
+Type Rand(Type low, Type high) {
+  Type t = (Type)rand() / (Type)RAND_MAX;
+  return (1.0 - t) * low + t * high;
+}
 
-int main(void)
-{
-	cl_int err = CL_SUCCESS;
-	try {
+void Pollination(unsigned int size) {
+  unsigned int* ptr_size = &size;
+  float* garden = new float[size * size];
+  for (unsigned int i = 0; i < size * size; i++) {
+    garden[i] = 1;
+  }
+  Keeper queen("kernel.txt");
+  Function pollination("id", "Pollinate");
+  pollination.SetArgument<float>(garden, {size, size}, true);
+  pollination.SetArgument<unsigned int>(ptr_size, {1});
 
-		std::vector<cl::Platform> platforms;
-		cl::Platform::get(&platforms);
-		if (platforms.size() == 0) {
-			std::cout << "Platform size 0\n";
-			return -1;
-		}
+  queen.SetFunction(pollination);
+  queen.SetTasks("id", "ALL", {size / 2, size / 2}, {size, size});
 
-		// Print number of platforms and list of platforms
-		std::cout << "Platform number is: " << platforms.size() << std::endl;
-		std::string platformVendor;
-		for (unsigned int i = 0; i < platforms.size(); ++i) {
-			platforms[i].getInfo((cl_platform_info)CL_PLATFORM_VENDOR, &platformVendor);
-			std::cout << "Platform is by: " << platformVendor << std::endl;
-		}
+  queen.Start("DYNAMIC");
 
-		cl_context_properties properties[] =
-		{
-				CL_CONTEXT_PLATFORM,
-				(cl_context_properties)(platforms[0])(),
-				0
-		};
-		cl::Context context(CL_DEVICE_TYPE_ALL, properties);
+  queen.Info();
 
-		std::vector<cl::Device> devices = context.getInfo<CL_CONTEXT_DEVICES>();
+  for (unsigned int i = 0; i < size * size; i++) {
+    if (garden[i] != 0) cout << "ERROR";
+  }
+}
 
-		// Print number of devices and list of devices
-		std::cout << "Device number is: " << devices.size() << std::endl;
-		for (unsigned int i = 0; i < devices.size(); ++i) {
-			std::cout << "Device #" << i << ": " << devices[i].getInfo<CL_DEVICE_NAME>() << std::endl;
-		}
+template <typename Type>
+void MulMatrixOpt(unsigned int size) {
+  Type* A = new Type[size * size];
+  Type* B = new Type[size * size];
+  Type* C = new Type[size * size];
+  Type* Check = new Type[size * size];
 
-		cl::Program::Sources source(1,
-			std::make_pair(helloStr, strlen(helloStr)));
-		cl::Program program_ = cl::Program(context, source);
-		program_.build(devices);
+  for (unsigned int i = 0; i < size * size; i++) {
+    A[i] = Rand<Type>(-100, 100);
+    B[i] = Rand<Type>(-100, 100);
+    C[i] = 0;
+    Check[i] = 0;
+  }
 
-		cl::Kernel kernel(program_, "hello", &err);
+  for (int i = 0; i < size; i++) {
+    for (int j = 0; j < size; j++) {
+      for (int k = 0; k < size; ++k) {
+        Check[i * size + j] += A[i * size + k] * B[k * size + j];
+      }
+    }
+  }
 
-		cl::Event event;
-		cl::CommandQueue queue(context, devices[0], 0, &err);
-		queue.enqueueNDRangeKernel(
-			kernel,
-			cl::NullRange,
-			cl::NDRange(4, 4),
-			cl::NullRange,
-			NULL,
-			&event);
+  unsigned int block = 16;
 
-		event.wait();
-	}
-	catch (cl::Error err) {
-		std::cerr
-			<< "ERROR: "
-			<< err.what()
-			<< "("
-			<< err.err()
-			<< ")"
-			<< std::endl;
-	}
+  Type* a = NULL;
+  Type* b = NULL;
 
-	
-	Hello();
+  unsigned int* ptr_size = &size;
 
-	return EXIT_SUCCESS;
+  unsigned int* ptr_block = &block;
 
+  Keeper queen("kernel.txt");
+
+  Function MulMatrixOpt("mul", "MulMatrixOpt", true);
+  MulMatrixOpt.SetArgument<Type>(A, {size, size});
+  MulMatrixOpt.SetArgument<Type>(B, {size, size});
+  MulMatrixOpt.SetArgument<Type>(C, {size, size}, true);
+  MulMatrixOpt.SetArgument<unsigned int*>(ptr_size, {1});
+  MulMatrixOpt.SetArgument<Type>(a, {block, block});
+  MulMatrixOpt.SetArgument<Type>(b, {block, block});
+  MulMatrixOpt.SetArgument<unsigned int*>(ptr_block, {1});
+  queen.SetFunction(MulMatrixOpt);
+
+  queen.Test(10, "mul", 10, {size, size}, {block, block}, {Check});
+
+  //   queen.SetTask("mul", "GPU", {0, 0}, {size, size}, {block, block});
+  //	  queen.SetTasks("mul", "ALL", {size/2, size/2}, {size, size}, {block,
+  // block});
+  //   queen.Start();
+  //   queen.Info("TIME");
+
+  delete[] A;
+  delete[] B;
+  delete[] C;
+}
+
+template <typename Type>
+void Integration(Type a, Type b, Type c, Type d, unsigned int size) {
+  Type* sums = new Type[size * size];
+  for (int i = 0; i < size * size; i++) {
+    sums[i] = 0;
+  }
+
+  Type* ptr_a = &a;
+  Type* ptr_b = &b;
+  Type* ptr_c = &c;
+  Type* ptr_d = &d;
+  unsigned int* ptr_split = &size;
+
+  Keeper queen("kernel.txt");
+
+  Function Integration("integ", "Integration");
+  Integration.SetArgument<Type>(ptr_a, {1});
+  Integration.SetArgument<Type>(ptr_b, {1});
+  Integration.SetArgument<Type>(ptr_c, {1});
+  Integration.SetArgument<Type>(ptr_d, {1});
+  Integration.SetArgument<unsigned int>(ptr_split, {1});
+  Integration.SetArgument<Type>(sums, {size, size}, true);
+
+  queen.SetFunction(Integration);
+
+  queen.Test(10, "integ", 5, {size, size});
+
+  // queen.SetTask("integ", "ALL", {0, 0}, {size, size});
+  // queen.SetTasks("integ", "GPU", {size / 2, size / 2}, {size, size});
+  // queen.Start();
+  // queen.Info("TIME");
+
+  Type I = 0;
+
+  for (int i = 0; i < size * size; i++) {
+    I += sums[i];
+  }
+  cout << "Integral = " << I << endl;
+}
+
+int main(int argc, char* argv[]) {
+  std::string taskStr = argv[1];
+
+  std::string sizeStr = argv[2];
+
+  int size = atoi(sizeStr.c_str());
+
+  int task = atoi(taskStr.c_str());
+
+  switch (task) {
+    case 1:
+      Pollination(size);
+      break;
+
+    case 2:
+      Integration<double>(1, 10000, 1, 10000, size);
+      break;
+
+    case 3:
+      MulMatrixOpt<float>(size);
+      break;
+
+    default:
+      break;
+  }
+
+  int tmp;
+
+  cout << endl;
+  cout << "TYPE SOMETHING: ";
+
+  cin >> tmp;
+  return 0;
 }

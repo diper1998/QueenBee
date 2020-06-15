@@ -1,0 +1,97 @@
+kernel void Pollinate(global float* my_garden, 
+    constant unsigned int* ptr_size) {
+
+  int i = get_global_id(0);
+  int j = get_global_id(1);
+  
+ unsigned int size = *ptr_size;	
+ my_garden[i*size+j] = 0;
+
+}
+
+double f_(double x)
+{
+    return fabs(sin(x)*cos(x)*log(x)*cbrt(x)*sqrt(fabs(x)))/(x+1);
+    
+}
+
+double f(double x, double y)
+{
+   return f_(x)*f_(y)*f_(x+y)*f_(x/y)*f_(y/x)*f_(pow(x,1/y))*f_(pow(y,1/x))+f_(x*y);
+}
+
+
+double Simpson(double a, double b, double c, double d)
+{
+   
+    return ((b-a)*(d-c)/36)*(f(a,c)+f(a,d)+f(b,c)+f(b,d)+
+			4*(f(a, c/2+d/2)+f(b, c/2+d/2)+f(a/2+b/2, c)+f(a/2+b/2, d))+
+			16*f(a/2+b/2, c/2+ d/2));
+}
+
+kernel void Integration(
+    constant double* ptr_a,
+    constant double* ptr_b,
+	constant double* ptr_c,
+	constant double* ptr_d,
+	constant unsigned int* ptr_split,
+    global double* sums)
+{
+	
+	double a = *ptr_a;
+	double b = *ptr_b;
+	double c = *ptr_c;
+	double d = *ptr_d;
+	unsigned int split = *ptr_split;
+
+
+
+    int x_id = get_global_id(0);
+	int y_id = get_global_id(1);
+
+	sums[x_id*split+y_id] = 0;
+
+    double a1 = a+((b-a)/split)*get_global_id(0);
+    double b1 = a1+(b-a)/split;
+	double c1 = c+((d-c)/split)*get_global_id(1);
+	double d1 = c1+(d-c)/split;
+  
+    sums[x_id*split+y_id] = Simpson(a1, b1, c1, d1) ;
+
+
+}
+
+kernel void MulMatrixOpt(global  float* a, global float* b,
+                         global float* c, constant int* size_ptr,
+                         local float* a_local, local float* b_local,
+                         constant int* blocksize_ptr) {
+  int j = get_global_id(0);
+  int i = get_global_id(1);
+
+
+  int size = *size_ptr;
+  int BLOCK_SIZE = *blocksize_ptr;
+
+  int localJ = get_local_id(0);
+  int localI = get_local_id(1);
+
+  float sum = 0.0f;
+
+
+  for (int p = 0; p < size / BLOCK_SIZE; ++p) {
+    a_local[localI * BLOCK_SIZE + localJ] =
+        a[i * size + p * BLOCK_SIZE + localJ];
+    b_local[localI * BLOCK_SIZE + localJ] =
+        b[(p * BLOCK_SIZE + localI) * size + j];
+    barrier(CLK_LOCAL_MEM_FENCE);
+
+    for (int l = 0; l < BLOCK_SIZE; ++l) {
+      sum +=
+          a_local[localI * BLOCK_SIZE + l] * b_local[l * BLOCK_SIZE + localJ];
+    }
+    barrier(CLK_LOCAL_MEM_FENCE);
+  }
+
+  c[i * size + j] = sum;
+
+}
