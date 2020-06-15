@@ -1,8 +1,8 @@
 #define CL_USE_DEPRECATED_OPENCL_1_2_APIS
 #define _CL_ENABLE_EXCEPTIONS
 
-#include <Cl/cl.hpp>
 #include <windows.h>
+#include <Cl/cl.hpp>
 #include <fstream>
 #include <iostream>
 #include <mutex>
@@ -148,10 +148,9 @@ class Keeper {
   int Dynamic();
   void Keeper::ThreadFunction(Hive& h);
   void Keeper::ThreadFunctionDynamic(Hive& h, vector<Task>& tasks);
-  int CompareValue(void* first, void* second, unsigned int position, string type);
-  int Compare(vector<Argument> arguments,
-              vector<void*> compare_result);
-
+  int CompareValue(void* first, void* second, unsigned int position,
+                   string type);
+  int Compare(vector<Argument> arguments, vector<void*> compare_result);
 
  public:
   Keeper();
@@ -223,7 +222,4 @@ class Keeper {
            vector<unsigned int> global_range,
            vector<unsigned int> local_range = {},
            vector<void*> compare_result = {});
-
-  
-
 };

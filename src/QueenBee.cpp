@@ -279,6 +279,7 @@ string Keeper::Info(string mode) {
     for (const auto& g : gardens) {
       for (const auto& h : g.hives) {
         cout << endl
+             << h.name << endl
              << h.program.getBuildInfo<CL_PROGRAM_BUILD_LOG>(h.device.back())
              << endl;
 
@@ -499,7 +500,8 @@ int Keeper::Static() {
   for (auto& g : gardens) {
     for (auto& h : g.hives) {
       for (auto& t : tasks) {
-        if (t.parallel_method == h.name) {
+        if ((t.parallel_method == h.name) ||
+            (h.name == "GPU" && t.parallel_method == "ALL")) {
           h.tasks.push_back(t);
         }
       }
@@ -534,10 +536,9 @@ void Keeper::ThreadFunction(Hive& h) {
 
   for (auto& t : h.tasks) {
     for (auto& f : h.functions_ptrs) {
-      h.work_time.push_back(0);
-      h.read_time.push_back(0);
-
       if (f->id == t.function_id) {
+        h.work_time.push_back(0);
+        h.read_time.push_back(0);
         int status =
             h.command.enqueueNDRangeKernel(f->kernel, GetRange(t.offsets),
                                            GetGlobalRange(t.globals, t.offsets),
@@ -686,8 +687,8 @@ int Keeper::CompareValue(void* first, void* second, unsigned int position,
                          string type) {
   if (type == "float") {
     if (fabsf(*(static_cast<float*>(first) + position) -
-             *(static_cast<float*>(second) + position)) < 0.01) {
-		return 1;
+              *(static_cast<float*>(second) + position)) < 0.01) {
+      return 1;
     } else {
       return 0;
     }
@@ -803,7 +804,7 @@ int Keeper::Test(unsigned int repeat_count, string function_id,
   ss >> str;
   perfomance_static.open(function_id + str + string("_static") +
                          string(".txt"));
-  perfomance_dynamic.open(function_id + str +  string("_dynamic") +
+  perfomance_dynamic.open(function_id + str + string("_dynamic") +
                           string(".txt"));
   perfomance_results.open(function_id + str + string("_results") +
                           string(".txt"));

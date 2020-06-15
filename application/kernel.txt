@@ -1,97 +1,13 @@
+kernel void Pollinate(global float* my_garden, 
+    constant unsigned int* ptr_size) {
 
-
-
-kernel void MulMatrix(global const int* A, global const int* B,
-                      global int* C, constant unsigned int* ptrSize) {
   int i = get_global_id(0);
   int j = get_global_id(1);
-  unsigned int size = *ptrSize;
-
-
- C[i*size+j] = 0;
- 
-  for (unsigned int k = 0; k < size; ++k){
-    C[i * size + j] += A[i * size + k] * B[k * size + j];
-	
-	 }
-
-//barrier(CLK_GLOBAL_MEM_FENCE);
- //   printf("%f \n", B[i * size + j]);
-}
-
-
-kernel void MulMatrixOpt(global  float* a, global float* b,
-                         global float* c, constant int* size_ptr,
-                         local float* a_local, local float* b_local,
-                         constant int* blocksize_ptr) {
-  int j = get_global_id(0);
-  int i = get_global_id(1);
-
-
-  int size = *size_ptr;
-  int BLOCK_SIZE = *blocksize_ptr;
-
-  int localJ = get_local_id(0);
-  int localI = get_local_id(1);
-
-  float sum = 0.0f;
-
-
-  for (int p = 0; p < size / BLOCK_SIZE; ++p) {
-    a_local[localI * BLOCK_SIZE + localJ] =
-        a[i * size + p * BLOCK_SIZE + localJ];
-    b_local[localI * BLOCK_SIZE + localJ] =
-        b[(p * BLOCK_SIZE + localI) * size + j];
-    barrier(CLK_LOCAL_MEM_FENCE);
-
-    for (int l = 0; l < BLOCK_SIZE; ++l) {
-      sum +=
-          a_local[localI * BLOCK_SIZE + l] * b_local[l * BLOCK_SIZE + localJ];
-    }
-    barrier(CLK_LOCAL_MEM_FENCE);
-  }
-
-  c[i * size + j] = sum;
-
-
-
- //printf("%d ", c[i*size+j]);
- 
-}
-
-
-kernel void Convolution(global float* in, global float* out, 
-			constant int* ptr_size, global float* kern, 
-				constant int* ptr_radius){
-
-int i = get_global_id(1);//y
-int j = get_global_id(0);//x
-int size = *ptr_size;
-int radius = *ptr_radius;
-
-
-int r;
-int center = (2*radius+1)*(radius)+radius;
-float sum = in[i*size+j]*kern[center];
-out[i*size+j] = 0;
-for(r = 1; r <= radius; ++r){
-
-if( j - r >= 0 && j + r < size && i - r >= 0 && i + r < size){
-
-sum+= in[i*size+(j+r)]*kern[center + r] + in[i*size+(j-r)]*kern[center-r]
-      + in[(i+r)*size+j]*kern[center+2*r*r+1] +in[(i-r)*size+j]*kern[center-2*r*r-1]
-      + in[(i-r)*size+(j-r)]*kern[center-2*r*r-1 - r]+ in[(i+r)*size+(j+r)]*kern[center+2*r*r+1 + r]
-      + in[(i+r)*size+(j-r)]*kern[center+2*r*r+1 - r] + in[(i-r)*size+(j+r)]*kern[center-2*r*r-1 + r];
-}
-
-
+  
+ unsigned int size = *ptr_size;	
+ my_garden[i*size+j] = 0;
 
 }
-
-out[i*size+j] = sum;
-
-} 
-
 
 double f_(double x)
 {
@@ -101,12 +17,11 @@ double f_(double x)
 
 double f(double x, double y)
 {
-   // return f_(x*y)*f_(x+y)+f_(x/y)*f_(pow(y,x))+f_(y/x)*f_(pow(x,y)) + f_(x)*f_(y);
    return f_(x)*f_(y)*f_(x+y)*f_(x/y)*f_(y/x)*f_(pow(x,1/y))*f_(pow(y,1/x))+f_(x*y);
 }
 
 
-double trap(double a, double b, double c, double d)
+double Simpson(double a, double b, double c, double d)
 {
    
     return ((b-a)*(d-c)/36)*(f(a,c)+f(a,d)+f(b,c)+f(b,d)+
@@ -141,18 +56,42 @@ kernel void Integration(
 	double c1 = c+((d-c)/split)*get_global_id(1);
 	double d1 = c1+(d-c)/split;
   
-    sums[x_id*split+y_id] = trap(a1, b1, c1, d1) ;
+    sums[x_id*split+y_id] = Simpson(a1, b1, c1, d1) ;
+
 
 }
 
+kernel void MulMatrixOpt(global  float* a, global float* b,
+                         global float* c, constant int* size_ptr,
+                         local float* a_local, local float* b_local,
+                         constant int* blocksize_ptr) {
+  int j = get_global_id(0);
+  int i = get_global_id(1);
 
-kernel void DotProduct(global const float* A, global const float* B,
-                      global float* C, constant int* ptrSize) {
-  int i = get_global_id(0);
-  int size = *ptrSize;
+
+  int size = *size_ptr;
+  int BLOCK_SIZE = *blocksize_ptr;
+
+  int localJ = get_local_id(0);
+  int localI = get_local_id(1);
+
+  float sum = 0.0f;
 
 
- C[i] = A[i]*B[i];
-   
+  for (int p = 0; p < size / BLOCK_SIZE; ++p) {
+    a_local[localI * BLOCK_SIZE + localJ] =
+        a[i * size + p * BLOCK_SIZE + localJ];
+    b_local[localI * BLOCK_SIZE + localJ] =
+        b[(p * BLOCK_SIZE + localI) * size + j];
+    barrier(CLK_LOCAL_MEM_FENCE);
+
+    for (int l = 0; l < BLOCK_SIZE; ++l) {
+      sum +=
+          a_local[localI * BLOCK_SIZE + l] * b_local[l * BLOCK_SIZE + localJ];
+    }
+    barrier(CLK_LOCAL_MEM_FENCE);
+  }
+
+  c[i * size + j] = sum;
 
 }
