@@ -1,5 +1,5 @@
-# QueenBee
+ # QueenBee  
+<a href="https://imgbb.com/"><img src="https://i.ibb.co/PjKqFMD/5465465.png" alt="5465465" border="0"></a>
 
-OpenCL task manager
+<a href="https://ibb.co/729DGb1"><img src="https://i.ibb.co/dGhvQ75/image.png" alt="image" border="0"></a>
 
-Cmake exemple: cmake -D OPENCL_INCLUDE_DIR="C:\Program Files (x86)\IntelSWTools\OpenCL\sdk\include" -D OPENCL_LIBRARIES="C:\Program Files (x86)\IntelSWTools\OpenCL\sdk\lib\x64\OpenCL.lib" -G "Visual Studio 16 2019" -A x64 ../QueenBee
