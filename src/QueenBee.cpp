@@ -499,10 +499,11 @@ int Keeper::Static() {
 
   for (auto& g : gardens) {
     for (auto& h : g.hives) {
-      for (auto& t : tasks) {
-        if ((t.parallel_method == h.name) ||
-            (h.name == "GPU" && t.parallel_method == "ALL")) {
-          h.tasks.push_back(t);
+      for (int i = tasks.size(); i >= 0; --i) {
+        if ((tasks[i].parallel_method == h.name) ||
+            (h.name == "GPU" && tasks[i].parallel_method == "ALL")) {
+          h.tasks.push_back(tasks[i]);
+          tasks.pop_back();
         }
       }
     }
