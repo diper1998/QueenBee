@@ -45,9 +45,9 @@ void MulMatrixOpt(unsigned int size) {
 
   for (int i = 0; i < size; i++) {
     for (int j = 0; j < size; j++) {
-      for (int k = 0; k < size; ++k) {
-        Check[i * size + j] += A[i * size + k] * B[k * size + j];
-      }
+     for (int k = 0; k < size; ++k) {
+       Check[i * size + j] += A[i * size + k] * B[k * size + j];
+     }
     }
   }
 
@@ -72,13 +72,16 @@ void MulMatrixOpt(unsigned int size) {
   MulMatrixOpt.SetArgument<unsigned int*>(ptr_block, {1});
   queen.SetFunction(MulMatrixOpt);
 
-  queen.Test(10, "mul", 10, {size, size}, {block, block}, {Check});
+ queen.Test(1, "mul", 10, {size, size}, {block, block} , {Check});
 
-  //   queen.SetTask("mul", "GPU", {0, 0}, {size, size}, {block, block});
-  //	  queen.SetTasks("mul", "ALL", {size/2, size/2}, {size, size}, {block,
-  // block});
-  //   queen.Start();
-  //   queen.Info("TIME");
+ //   queen.SetTask("mul", "GPU", {0, 0}, {size, size}, {block, block});
+ // 	  queen.SetTasks("mul", "ALL", {size/2, size/2}, {size, size}, {block,
+ //  block});
+ //    queen.Start();
+ //    queen.Info("TIME");
+
+
+	
 
   delete[] A;
   delete[] B;
@@ -110,7 +113,7 @@ void Integration(Type a, Type b, Type c, Type d, unsigned int size) {
 
   queen.SetFunction(Integration);
 
-  queen.Test(10, "integ", 5, {size, size});
+  queen.Test(10, "integ", 10, {size, size});
 
   // queen.SetTask("integ", "ALL", {0, 0}, {size, size});
   // queen.SetTasks("integ", "GPU", {size / 2, size / 2}, {size, size});
@@ -126,13 +129,16 @@ void Integration(Type a, Type b, Type c, Type d, unsigned int size) {
 }
 
 int main(int argc, char* argv[]) {
-  std::string taskStr = argv[1];
-
+ std::string taskStr = argv[1];
+ 
   std::string sizeStr = argv[2];
-
-  int size = atoi(sizeStr.c_str());
+ 
 
   int task = atoi(taskStr.c_str());
+
+  int size = atoi(sizeStr.c_str());
+ 
+
 
   switch (task) {
     case 1:
@@ -144,7 +150,7 @@ int main(int argc, char* argv[]) {
       break;
 
     case 3:
-      MulMatrixOpt<float>(size);
+      MulMatrixOpt<double>(size);
       break;
 
     default:
